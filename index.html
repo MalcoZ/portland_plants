@@ -2,1158 +2,1715 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>FreeCell</title>
+<meta name="color-scheme" content="light">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Portland's native plants</title>
+<meta name="description" content="An animated field guide to twelve native plants of the Portland, Oregon area, one for each month of the year.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500..800&display=swap" rel="stylesheet">
-<script>try{var _s=JSON.parse(localStorage.getItem('fc:settings')||'{}'),_t=_s.theme||'light';if(_t!=='auto')document.documentElement.setAttribute('data-theme',_t)}catch(e){document.documentElement.setAttribute('data-theme','light')}</script>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700&display=swap" rel="stylesheet">
 <style>
-:root{
-  --base-top:#f1f2f5; --base-bot:#f1f2f5; --pat:rgba(17,20,30,.085);
-  --glass:#ffffff; --glass-line:rgba(17,20,30,.09); --chip:#ffffff;
-  --ink:#14161d; --ink-soft:#6a7080;
-  --slot-bg:rgba(17,20,30,.035); --slot-line:rgba(17,20,30,.13);
-  --card:#ffffff; --card-edge:rgba(17,20,30,.14); --red:#d93047; --black:#14161d;
-  --accent:#2f5bea; --accent-soft:rgba(47,91,234,.16); --accent-ink:#ffffff;
-  --sh:rgba(17,20,30,.22); --scrim:rgba(17,20,30,.40); --panel:#ffffff;
-  --ease:cubic-bezier(.4,0,.1,1);
-  box-sizing:border-box;
-  padding-top:env(safe-area-inset-top,0px);
-  padding-bottom:env(safe-area-inset-bottom,0px);
+:root {
+  color-scheme: light;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  --bg: #F3E6D8;
+  --ink: #1E2A33;
+  --ink-soft: rgba(30, 42, 51, 0.66);
+  --line: rgba(30, 42, 51, 0.16);
+  --surface: #FFFFFF;
+  --accent: #B5472A;
+  --focus: #1E2A33;
+  --glass: rgba(255, 255, 255, 0.8);
+  --t-winter: #8DA2B5;
+  --t-spring: #E5A6B4;
+  --t-summer: #E7C45E;
+  --t-fall: #CD7852;
+  --pad: clamp(16px, 3.2vw, 44px);
 }
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --base-top:#13151a; --base-bot:#13151a; --pat:rgba(255,255,255,.07);
-    --glass:#1c1f26; --glass-line:rgba(255,255,255,.08); --chip:#1c1f26;
-    --ink:#eceef3; --ink-soft:#8f95a6;
-    --slot-bg:rgba(255,255,255,.03); --slot-line:rgba(255,255,255,.11);
-    --card:#f7f7fa; --card-edge:rgba(0,0,0,.18); --red:#e0364b; --black:#14161d;
-    --accent:#7a9bff; --accent-soft:rgba(122,155,255,.22); --accent-ink:#0b1020;
-    --sh:rgba(0,0,0,.55); --scrim:rgba(0,0,0,.55); --panel:#1c1f26;
+*, *::before, *::after { box-sizing: inherit; }
+html { height: 100%; scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+
+/* ---------- Layout ---------- */
+.app {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: var(--pad);
+  display: grid;
+  gap: clamp(16px, 2.4vw, 28px);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "head" "stage" "info" "time";
+  opacity: 0;
+  transition: opacity 0.7s ease;
+}
+.ready .app { opacity: 1; }
+.head { grid-area: head; }
+.stage-wrap { grid-area: stage; display: flex; justify-content: center; }
+.info { grid-area: info; }
+.timeline {
+  grid-area: time;
+  /* Widen the timeline to the left by exactly the inset of the first dot, so
+     "Winter", the first dot, and the text above all share one left edge. */
+  width: calc((100% - 6px) * 24 / 23);
+  margin-left: calc(6px - (100% - 6px) / 23);
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  max-width: 680px;
+  aspect-ratio: 1 / 1;
+  border-radius: clamp(18px, 3vw, 32px);
+  overflow: hidden;
+  cursor: pointer;
+  isolation: isolate;
+}
+.stage > svg, .stage > canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+}
+.stage > canvas { pointer-events: none; }
+
+@media (min-width: 880px) {
+  .app {
+    min-height: 100%;
+    grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas: "stage head" "stage info" "stage time";
+    column-gap: clamp(28px, 4vw, 64px);
+    align-items: start;
   }
+  .stage-wrap { align-self: center; }
+  .stage { max-width: min(780px, calc(100svh - 2 * var(--pad) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))); }
+  .info { align-self: start; margin-top: clamp(20px, 4.5vh, 48px); }
 }
-:root[data-theme="dark"]{
-  --base-top:#13151a; --base-bot:#13151a; --pat:rgba(255,255,255,.07);
-  --glass:#1c1f26; --glass-line:rgba(255,255,255,.08); --chip:#1c1f26;
-  --ink:#eceef3; --ink-soft:#8f95a6;
-  --slot-bg:rgba(255,255,255,.03); --slot-line:rgba(255,255,255,.11);
-  --card:#f7f7fa; --card-edge:rgba(0,0,0,.18); --red:#e0364b; --black:#14161d;
-  --accent:#7a9bff; --accent-soft:rgba(122,155,255,.22); --accent-ink:#0b1020;
-  --sh:rgba(0,0,0,.55); --scrim:rgba(0,0,0,.55); --panel:#1c1f26;
+@media (min-width: 880px) and (min-height: 601px) {
+  /* The right column is exactly as tall as the illustration: the title lines up
+     with its top edge, the timeline with its bottom, and the plant details fill
+     the space between. The whole layout sits centered on the screen. */
+  body {
+    display: flex; align-items: center;
+    min-height: calc(100svh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  }
+  .app { width: 100%; grid-template-rows: auto minmax(0, 1fr) auto; }
+  .stage-wrap { align-self: start; }
+  .head h1 { line-height: 1.05; transform: translateY(-0.17em); } /* optical: tops of the capitals meet the illustration's top edge */
+  .info { align-self: stretch; min-height: 0; overflow: hidden; margin-top: clamp(16px, 3.5vh, 44px); }
 }
-*,*::before,*::after{box-sizing:border-box}
-[hidden]{display:none!important}
-html{height:100%;touch-action:manipulation;-webkit-text-size-adjust:100%;background:var(--base-bot);scroll-padding-top:env(safe-area-inset-top,0px)}
-body{
-  margin:0;height:100%;overflow:hidden;touch-action:manipulation;-webkit-user-select:none;user-select:none;color:var(--ink);
-  font-family:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;
-  background:var(--base-bot);
-  -webkit-tap-highlight-color:transparent;
+@media (min-width: 880px) and (min-height: 601px) and (max-height: 760px) {
+  .sub { display: none; }
 }
-.bgfx{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:block}
-.app{position:relative;z-index:1;display:flex;flex-direction:column;height:100%;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+/* Desktop: the plant details live beside the illustration, so the
+   "About this plant" button and pop-up card aren't needed. */
+.details { display: none; }
+@media (min-width: 880px) and (min-height: 601px) {
+  .details { display: block; }
+  #aboutBtn { display: none; }
+  .stage { cursor: default; }
+  .details { --ds: 1; }
+  .d-latin { margin: calc(8px * var(--ds)) 0 0; font-style: italic; font-weight: 300; font-size: calc(1.1rem * var(--ds)); color: var(--ink-soft); }
+  .d-fact { margin: calc(20px * var(--ds)) 0 0; font-size: calc(1.14rem * var(--ds)); line-height: 1.5; max-width: 38ch; }
+  .d-list { margin: calc(22px * var(--ds)) 0 0; padding-top: calc(18px * var(--ds)); border-top: 1px solid var(--line); display: grid; gap: calc(14px * var(--ds)); max-width: 42ch; }
+  .d-list dt { font-size: calc(0.82rem * var(--ds)); font-weight: 500; color: var(--ink-soft); margin-bottom: 2px; }
+  .d-list dd { margin: 0; font-size: calc(0.98rem * var(--ds)); line-height: 1.45; }
+}
+@media (orientation: landscape) and (max-height: 600px) {
+  .app {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas: "stage head" "stage info" "stage time";
+    column-gap: 24px;
+    row-gap: 10px;
+    --pad: 14px;
+  }
+  .stage-wrap { align-self: start; }
+  .stage { width: calc(100svh - 2 * var(--pad) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); max-width: none; }
+  .sub { display: none; }
+}
+/* Phones held upright: full-width illustration with a compact caption,
+   buttons, and timeline below it. */
+@media (max-width: 879px) and (orientation: portrait) {
+  .app { --pad: 14px; gap: 10px; }
+  h1 { font-size: clamp(1.4rem, 6.4vw, 2.2rem); max-width: none; line-height: 1.02; }
+  .sub, .tl-hint { display: none; }
+  .app { gap: 24px; --pad: 16px; }
+  .card .fact, .card dd { font-size: 0.95rem; }
+  .app .btn { height: 36px; padding: 0 15px; font-size: 0.9rem; }
+  .app .icon-btn { width: 36px; height: 36px; }
+  .app .icon-btn svg { width: 15px; height: 15px; }
+  .timeline .tl-season { padding: 2px 0 2px calc(100% / 6 - 6px); }
+  .timeline .tl-wrap { height: 30px; }
+  .timeline .tl-month { padding: 2px 0; }
+}
 
-/* top bar */
-.top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px 6px}
-.top h1{margin:0;font-weight:800;font-size:19px;letter-spacing:-.03em}
-.hud{display:flex;gap:6px}
-.chip{
-  display:inline-flex;align-items:baseline;gap:4px;padding:6px 11px;border-radius:999px;font-size:13px;font-weight:600;color:var(--ink-soft);
-  background:var(--chip);border:1px solid var(--glass-line);
-  font-variant-numeric:tabular-nums;white-space:nowrap;
+/* ---------- Type ---------- */
+h1 {
+  margin: 0;
+  font-weight: 600;
+  font-size: clamp(1.7rem, 1.2rem + 1.8vw, 2.5rem);
+  line-height: 1.12;
+  letter-spacing: -0.018em;
+  max-width: 22ch;
 }
-.chip b{display:inline-block;color:var(--ink);font-weight:700}
-.chip b.tick{animation:tick .55s var(--ease)}
-@keyframes tick{from{transform:translateY(45%);opacity:.15}to{transform:none;opacity:1}}
+.sub { margin: 6px 0 0; color: var(--ink-soft); font-size: 0.98rem; line-height: 1.45; max-width: 44ch; }
+.when { margin: 0; color: var(--ink-soft); font-size: 0.95rem; }
+.name {
+  margin: 0;
+  font-size: clamp(1.9rem, 1.2rem + 3vw, 3.3rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 0.98;
+  white-space: nowrap;
+}
+.latin { margin: 6px 0 0; font-style: italic; font-weight: 300; color: var(--ink-soft); font-size: 1.02rem; }
+.info-text > * { will-change: opacity, transform; }
+.when, .latin { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fact { margin: 14px 0 0; font-size: 1.02rem; line-height: 1.5; max-width: 40ch; }
 
-/* table */
-.board{position:relative;flex:1;min-height:0;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+/* ---------- Controls ---------- */
+.actions { display: flex; gap: 10px; align-items: center; margin-top: 18px; }
+.btn {
+  height: 46px;
+  padding: 0 20px;
+  border-radius: 23px;
+  border: 1.5px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+  font-weight: 500;
+}
+.btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.icon-btn {
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 1.5px solid var(--line); background: transparent;
+  display: grid; place-items: center; cursor: pointer; flex: none;
+}
+.icon-btn svg { width: 18px; height: 18px; fill: currentColor; }
 
-/* dock */
-.bar{
-  display:flex;gap:4px;margin:6px 12px 12px;padding:5px;border-radius:26px;align-self:center;width:calc(100% - 24px);max-width:460px;
-  background:var(--glass);border:1px solid var(--glass-line);
-  box-shadow:0 8px 24px -14px var(--sh);
+/* ---------- Timeline ---------- */
+.tl-seasons, .tl-months { display: grid; }
+.tl-seasons { grid-template-columns: repeat(4, 1fr); margin-bottom: 4px; }
+.tl-season {
+  background: none; border: 0; padding: 6px 0 6px calc(100% / 6 - 6px); text-align: left; cursor: pointer;
+  color: var(--ink-soft); font-size: 0.92rem;
+  transition: color 0.3s ease;
 }
-.btn{
-  touch-action:manipulation;
-  font:600 15px 'Manrope',system-ui,sans-serif;color:var(--ink);background:transparent;border:0;border-radius:999px;min-height:48px;padding:0 18px;
-  display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;
-  transition:background .3s var(--ease),opacity .3s,transform .3s var(--ease);
+.tl-season:hover { color: var(--ink); }
+.tl-season[aria-current="true"] { color: var(--ink); font-weight: 600; }
+.tl-wrap { position: relative; height: 40px; cursor: pointer; }
+.tl-track {
+  position: absolute; left: calc(100% / 24); right: calc(100% / 24); top: 50%;
+  height: 6px; margin-top: -3px; border-radius: 3px;
+  background: linear-gradient(90deg, var(--t-winter) 0 22.7%, var(--t-spring) 22.7% 50%, var(--t-summer) 50% 77.3%, var(--t-fall) 77.3% 100%);
 }
-.btn:hover{background:var(--glass-line)}
-.btn:active{transform:scale(.96)}
-.btn:disabled{opacity:.35;cursor:default;transform:none;background:transparent}
-.btn:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-.bar .btn{flex:1;min-width:0;padding:0 6px;gap:6px;white-space:nowrap;font-size:14.5px}
-#scene svg{transition:transform .8s var(--ease)}
-#scene.spun svg{transform:rotate(180deg)}
-.btn svg{flex:none;width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.btn.solid{background:var(--accent);color:var(--accent-ink)}
-.btn.solid:hover{filter:brightness(1.08);background:var(--accent)}
-.btn.soft{background:var(--glass-line)}
-.btn.soft:hover{filter:brightness(1.1)}
+.tl-dots { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(12, 1fr); pointer-events: none; }
+.tl-dot {
+  justify-self: center; align-self: center;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--bg); border: 2px solid var(--ink-soft);
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+.tl-dot.hover { transform: scale(1.5); border-color: var(--ink); }
+.tl-thumb {
+  position: absolute; top: 50%; left: 4.1667%;
+  width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%;
+  background: var(--bg); border: 5px solid var(--ink);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+.tl-wrap.kb .tl-thumb { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6px var(--focus); }
+.tl-tip {
+  position: absolute; bottom: calc(100% - 2px); left: 50%;
+  transform: translate(var(--tx, -50%), 4px);
+  background: var(--ink); color: var(--bg);
+  font-size: 0.8rem; font-weight: 500; line-height: 1.2;
+  padding: 6px 10px; border-radius: 8px; white-space: nowrap;
+  opacity: 0; pointer-events: none; z-index: 3;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.tl-tip.show { opacity: 1; transform: translate(var(--tx, -50%), 0); }
+.tl-range {
+  -webkit-appearance: none; appearance: none;
+  position: absolute; top: 0; left: 0; height: 100%;
+  margin: 0 calc(100% / 24 - 12px);
+  width: calc(100% - 100% / 12 + 24px);
+  background: transparent; opacity: 0; z-index: 2;
+  pointer-events: none; /* keyboard and screen readers only; pointer clicks go to the wrapper */
+}
+.tl-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; }
+.tl-range::-moz-range-thumb { width: 24px; height: 24px; border: 0; }
+.tl-hint { margin: 6px 0 0; font-size: 0.82rem; color: var(--ink-soft); }
+.tl-months { grid-template-columns: repeat(12, 1fr); margin-top: 2px; }
+.tl-month {
+  background: none; border: 0; padding: 6px 0; cursor: pointer;
+  color: var(--ink-soft); font-size: 0.8rem; text-align: center;
+  transition: color 0.3s ease;
+}
+.tl-month span {
+  padding-bottom: 3px;
+  background: linear-gradient(currentColor, currentColor) center bottom / 0% 2px no-repeat;
+  transition: background-size 0.35s ease;
+}
+.tl-month:hover { color: var(--ink); }
+.tl-month:hover span { background-size: 60% 2px; }
+.tl-month[aria-current="true"] { color: var(--ink); }
+.tl-month[aria-current="true"] span { background-size: 100% 2px; }
+.tl-month .s { display: none; }
+@media (max-width: 460px) {
+  .tl-month .l { display: none; }
+  .tl-month .s { display: inline; }
+}
 
-/* cards */
-.card,.slot{position:absolute;left:0;top:0;width:var(--cw);height:var(--ch);border-radius:calc(var(--cw)*.12)}
-.slot{background:var(--slot-bg);border:1px solid var(--slot-line);color:var(--slot-line);display:grid;place-items:center;z-index:0;transition:background .25s,border-color .25s,box-shadow .25s}
-.slot svg{width:42%;height:auto;aspect-ratio:1;fill:currentColor;opacity:.9}
-.slot.found{color:var(--ink-soft)}
-.slot.found svg{opacity:.5}
-.slot.red.found{color:color-mix(in srgb,var(--red) 70%,var(--ink-soft))}
-.slot.complete{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
-.slot::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0}
-.slot.pulse::after{animation:ring 1.1s var(--ease)}
-@keyframes ring{0%{opacity:.9;box-shadow:0 0 0 0 var(--accent)}100%{opacity:0;box-shadow:0 0 0 calc(var(--cw)*.22) var(--accent)}}
-.card{
-  z-index:10;opacity:0;background:var(--card);color:var(--black);
-  font-family:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:calc(var(--cw)*.42);
-  box-shadow:0 0 0 1px var(--card-edge),0 2px 5px var(--sh);cursor:pointer;overflow:hidden;will-change:transform;
-  transition:transform .7s var(--ease),translate .3s var(--ease),scale .3s var(--ease),box-shadow .3s;
-}
-.card.red,.slot.red{color:var(--red)}
-.idx{position:absolute;left:6%;top:2.5%;display:flex;align-items:center;gap:.1em;line-height:1}
-.idx b{font-weight:800;letter-spacing:-.05em}
-.idx svg{width:.8em;height:.8em;fill:currentColor}
-.p{position:absolute;height:auto;aspect-ratio:1;fill:currentColor;transform:translate(-50%,-50%)}
-.p.f{transform:translate(-50%,-50%) rotate(180deg)}
-.face{position:absolute;left:14%;right:14%;top:37%;bottom:6%;border:1px solid currentColor;border-radius:calc(var(--cw)*.07);background:color-mix(in srgb,currentColor 7%,transparent);overflow:hidden}
-.face .art{position:absolute;inset:0;width:100%;height:100%}
-.face .fs{position:absolute;left:6%;top:5%;width:24%;height:auto;aspect-ratio:1;fill:currentColor}
-.card.drag{transition:none!important;scale:1.05;box-shadow:0 0 0 1px var(--card-edge),0 16px 30px -4px var(--sh);cursor:grabbing}
-.card.target{box-shadow:0 0 0 3px var(--accent),0 2px 5px var(--sh)}
-.card.target.hover{box-shadow:0 0 0 4px var(--accent),0 2px 5px var(--sh)}
-.slot.target{background:var(--accent-soft);border-color:var(--accent)}
-.slot.target.hover{box-shadow:0 0 0 3px var(--accent)}
-.card.hint{animation:glow 1.2s ease-in-out 3}
-.slot.hint{animation:glow 1.2s ease-in-out 3}
-@keyframes glow{0%,100%{box-shadow:0 0 0 3px var(--accent-soft)}50%{box-shadow:0 0 0 4px var(--accent)}}
-.shake{animation:shake .32s var(--ease)}
-@keyframes shake{20%{translate:-5px 0}45%{translate:5px 0}70%{translate:-3px 0}100%{translate:0 0}}
+/* ---------- Footer ---------- */
+.foot { font-size: 0.84rem; color: var(--ink-soft); line-height: 1.5; margin: 0; }
+.foot a { color: inherit; }
 
-/* toast */
-.toast{
-  position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 86px);transform:translate(-50%,10px) scale(.98);
-  background:var(--glass);color:var(--ink);border:1px solid var(--glass-line);border-radius:999px;
-  padding:11px 18px;font-size:14px;font-weight:600;box-shadow:0 12px 30px -10px var(--sh);
-  opacity:0;pointer-events:none;transition:opacity .4s var(--ease),transform .55s var(--ease);max-width:calc(100% - 32px);text-align:center;z-index:50;
+/* ---------- Plant card ---------- */
+dialog.card {
+  position: fixed; inset: auto; margin: 0; padding: 0; border: 0;
+  max-width: none; max-height: none;
+  background: var(--glass); color: var(--ink);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border-radius: clamp(18px, 3vw, 32px);
+  overflow: auto; overscroll-behavior: contain;
 }
-.toast.show{opacity:1;transform:translate(-50%,0) scale(1)}
+dialog.card::backdrop { background: transparent; }
+.card-inner { padding: clamp(16px, 4vw, 30px); position: relative; }
+.card .close { position: absolute; top: 12px; right: 12px; background: transparent; border: 0; }
+.card .close:focus:not(:focus-visible) { outline: none; }
+dialog.card:focus { outline: none; }
+.card h2 { margin: 4px 0 0; font-size: clamp(1.5rem, 1.2rem + 1.5vw, 2rem); letter-spacing: -0.025em; line-height: 1; padding-right: 48px; }
+.card dl { margin: 16px 0 0; display: grid; gap: 12px; }
+.card .fact { margin-top: 10px; }
+.card dt { font-size: 0.86rem; color: var(--ink-soft); margin-bottom: 3px; }
+.card dd { margin: 0; line-height: 1.5; }
 
-/* dialogs */
-.scrim{
-  position:fixed;inset:0;background:var(--scrim);display:grid;place-items:center;padding:16px;z-index:100;
-  animation:fade .5s var(--ease);
+/* ---------- Buttons over the illustration ---------- */
+.stage .actions {
+  position: absolute; right: clamp(10px, 2vw, 16px); bottom: clamp(10px, 2vw, 16px);
+  margin: 0; gap: 8px; z-index: 3;
 }
-@keyframes fade{from{opacity:0}}
-.dlg{
-  background:var(--panel);color:var(--ink);border:1px solid var(--glass-line);border-radius:24px;padding:24px;width:100%;max-width:430px;
-  max-height:calc(100% - 8px);overflow:auto;box-shadow:0 24px 60px -24px var(--sh);animation:rise .75s var(--ease);
+.stage .btn.primary { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18); }
+.stage .icon-btn { background: var(--surface); border-color: transparent; color: var(--ink); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14); }
+.embed .stage .actions { display: none; }
+
+/* ---------- Embed mode ---------- */
+.embed .app { padding: 0; max-width: none; display: block; }
+.embed .head, .embed .info, .embed .timeline, .embed .foot { display: none; }
+.embed .stage-wrap { height: 100svh; align-items: center; }
+.embed .stage { width: min(100vw, 100svh); max-width: none; border-radius: 0; }
+.embed-cap { display: none; }
+.embed .embed-cap {
+  display: block; position: absolute; left: 14px; bottom: 12px; z-index: 2;
+  padding: 6px 12px; border-radius: 12px; background: var(--surface); color: var(--ink);
+  font-size: 0.9rem; font-weight: 600; pointer-events: none;
 }
-@keyframes rise{from{opacity:0;transform:translateY(28px) scale(.98)}}
-.dlg h2{margin:0 0 14px;font-size:28px;font-weight:800;letter-spacing:-.03em}
-.dlg p{margin:0 0 14px;line-height:1.55;font-size:16px;color:var(--ink-soft)}
-.actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
-.actions .btn{flex:1;min-width:140px}
-.row{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:15px;font-weight:600}
-.row span{flex:1}
-.row input{width:112px;-webkit-user-select:text;user-select:text;font:600 16px 'Manrope',system-ui,sans-serif;color:var(--ink);background:var(--slot-bg);border:1px solid var(--glass-line);border-radius:14px;padding:10px 12px;min-height:46px}
-.seg{display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--slot-bg);border:1px solid var(--glass-line)}
-.seg button{font:600 14px 'Manrope',system-ui,sans-serif;color:var(--ink-soft);background:transparent;border:0;border-radius:999px;min-height:38px;padding:0 14px;cursor:pointer;transition:background .3s var(--ease),color .3s var(--ease)}
-.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
-.seg button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-.check{display:flex;gap:12px;align-items:flex-start;font-size:15px;font-weight:600;line-height:1.4;margin-bottom:16px;cursor:pointer}
-.check input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--accent);flex:none}
-.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 16px;padding:0}
-.stats div{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:16px;background:var(--slot-bg);border:1px solid var(--glass-line)}
-.stats dt{font-size:12.5px;font-weight:600;color:var(--ink-soft)}
-.stats dd{margin:0;font-size:20px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-details.how{margin-bottom:16px;font-size:14px;line-height:1.55}
-details.how summary{cursor:pointer;font-weight:700;padding:6px 0}
-details.how p{font-size:14px;margin:6px 0 0}
-.dlg .close{width:100%}
-@media (max-width:560px){
-  .scrim{place-items:end center;padding:0}
-  .dlg{border-radius:28px 28px 0 0;max-width:none;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));animation:sheet .8s var(--ease)}
-  @keyframes sheet{from{transform:translateY(60px);opacity:0}}
-}
-@media (prefers-reduced-motion: reduce){
-  .card,.toast,.btn{transition:none}
-  .card.hint,.slot.hint,.shake,.chip b.tick,.slot.pulse::after,.dlg,.scrim{animation:none}
-}
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.nojs-note { display: none; }
 </style>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-  <defs>
-    <symbol id="s0" viewBox="0 0 24 24"><path d="M12 1.8C9.2 6.6 3.6 9.6 3.6 14.4a4.5 4.5 0 0 0 7.2 3.6c-.2 1.9-.9 3.3-2.3 4.2h7c-1.4-.9-2.1-2.3-2.3-4.2a4.5 4.5 0 0 0 7.2-3.6C20.4 9.6 14.8 6.6 12 1.8z"/></symbol>
-    <symbol id="s1" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></symbol>
-    <symbol id="s2" viewBox="0 0 24 24"><path d="M12 1.6l7.2 10.4L12 22.4 4.8 12z"/></symbol>
-    <symbol id="f10" viewBox="0 0 48 56">
-      <path d="M4 56c0-13 8-19 20-19s20 6 20 19z" fill="currentColor"/>
-      <path d="M17 37.5l7 8.5 7-8.5" fill="none" stroke="#d8a43b" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
-      <path d="M14.5 25c-2.5 6-.5 12 3 13.500l.8-13zM33.500 25c2.500 6 .5 12-3 13.500l-.8-13z" fill="currentColor"/>
-      <ellipse cx="24" cy="26" rx="8.500" ry="10.500" fill="#f2d4b1" stroke="currentColor" stroke-width="1.400"/>
-      <circle cx="20.500" cy="25.500" r="1.200" fill="#1b1b1b"/><circle cx="27.500" cy="25.500" r="1.200" fill="#1b1b1b"/>
-      <path d="M21 31.500q3 2.200 6 0" stroke="#1b1b1b" stroke-width="1.200" fill="none" stroke-linecap="round"/>
-      <path d="M13.500 21C12 11 19 6 27 6.500c6 .4 10 4 9.500 8.500-5-2-9-1-12 3.500z" fill="currentColor"/>
-      <path d="M30 8c5-5 11-5 14-8-1 8-6 13-12 14z" fill="#d8a43b" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/>
-    </symbol>
-    <symbol id="f11" viewBox="0 0 48 56">
-      <path d="M4 56c0-13 8-19 20-19s20 6 20 19z" fill="currentColor"/>
-      <path d="M17 37.5l7 8.500 7-8.500" fill="none" stroke="#d8a43b" stroke-width="2.400" stroke-linejoin="round" stroke-linecap="round"/>
-      <path d="M13.500 24c-2.500 12-1 22 4 24l6.500-3 6.500 3c5-2 6.500-12 4-24 0-9-6-13-10.500-13S13.500 15 13.500 24z" fill="currentColor"/>
-      <ellipse cx="24" cy="26" rx="8" ry="10" fill="#f2d4b1" stroke="currentColor" stroke-width="1.400"/>
-      <circle cx="20.500" cy="25.500" r="1.200" fill="#1b1b1b"/><circle cx="27.500" cy="25.500" r="1.200" fill="#1b1b1b"/>
-      <path d="M21 31q3 2.500 6 0" stroke="#b3322b" stroke-width="1.600" fill="none" stroke-linecap="round"/>
-      <path d="M14.500 17L16 8l4.500 5L24 5l3.500 8L32 8l1.500 9z" fill="#d8a43b" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
-    </symbol>
-    <symbol id="f12" viewBox="0 0 48 56">
-      <path d="M4 56c0-13 8-19 20-19s20 6 20 19z" fill="currentColor"/>
-      <path d="M17 37.500l7 8.500 7-8.500" fill="none" stroke="#d8a43b" stroke-width="2.400" stroke-linejoin="round" stroke-linecap="round"/>
-      <ellipse cx="24" cy="26" rx="8.500" ry="10.500" fill="#f2d4b1" stroke="currentColor" stroke-width="1.400"/>
-      <path d="M15.500 26c0 9 3.800 14.500 8.500 14.500s8.500-5.500 8.500-14.500c-2 5-5 7-8.500 7s-6.500-2-8.500-7z" fill="currentColor"/>
-      <path d="M18.500 29.500q5.500-3.500 11 0q-5.500 2.500-11 0z" fill="currentColor"/>
-      <circle cx="20.500" cy="24.500" r="1.200" fill="#1b1b1b"/><circle cx="27.500" cy="24.500" r="1.200" fill="#1b1b1b"/>
-      <path d="M13.500 18l1.500-12 6 6L24 3l3 9 6-6 1.500 12z" fill="#d8a43b" stroke="currentColor" stroke-width="1.200" stroke-linejoin="round"/>
-      <rect x="13.500" y="15" width="21" height="3.500" fill="currentColor"/>
-    </symbol>
-    <symbol id="s3" viewBox="0 0 24 24"><circle cx="12" cy="7.4" r="4.6"/><circle cx="6.9" cy="14.6" r="4.6"/><circle cx="17.1" cy="14.6" r="4.6"/><path d="M12 11c0 5-1 8.4-3.2 11h6.4C13 19.4 12 16 12 11z"/></symbol>
-  </defs>
-</svg>
-
-<canvas id="bg" class="bgfx" aria-hidden="true"></canvas>
-
-<div class="app">
-  <header class="top">
-    <h1>FreeCell</h1>
-    <div class="hud">
-      <span class="chip" title="Deal number"><b id="dealNo">#–</b></span>
-      <span class="chip"><b id="moves">0</b> moves</span>
-      <span class="chip"><b id="time">0:00</b></span>
-    </div>
+<main class="app">
+  <header class="head">
+    <h1>Portland's native plants</h1>
+    <p class="sub">Twelve native plants of the Portland area, one for each month of the year.</p>
   </header>
-  <main id="board" class="board" aria-label="FreeCell table"></main>
-  <nav class="bar" aria-label="Game controls">
-    <button class="btn" id="undo" type="button" title="Undo (U)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Undo</button>
-    <button class="btn" id="hint" type="button" title="Hint (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21.5h4"/><path d="M12 2.5a6.5 6.5 0 0 0-3.6 11.9c.7.5 1.1 1.2 1.1 2.1h5c0-.9.4-1.6 1.1-2.1A6.5 6.5 0 0 0 12 2.5z"/></svg>Hint</button>
-    <button class="btn" id="scene" type="button" title="Randomize background (B)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>Scene</button>
-    <button class="btn" id="menu" type="button" title="Menu (M)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Menu</button>
-  </nav>
-</div>
 
-<div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div class="stage-wrap">
+    <div class="stage" id="stage" role="group" aria-label="Plant illustration">
+      <svg id="scene" viewBox="0 0 400 400" aria-hidden="true">
+        <defs>
+          <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop id="skyTop" offset="0" stop-color="#B8C7CE"/>
+            <stop id="skyBottom" offset="0.78" stop-color="#F1D9BC"/>
+          </linearGradient>
+        </defs>
+        <rect width="400" height="400" fill="url(#skyGrad)"/>
+        <circle id="sun" cx="306" cy="98" r="40" fill="#F2A64E"/>
+        <g id="clouds" fill="#EEF0F0">
+          <g class="cloud"><ellipse cx="92" cy="86" rx="46" ry="15"/><ellipse cx="74" cy="76" rx="22" ry="17"/><ellipse cx="104" cy="72" rx="26" ry="21"/></g>
+          <g class="cloud"><ellipse cx="262" cy="122" rx="56" ry="14"/><ellipse cx="244" cy="112" rx="24" ry="16"/><ellipse cx="278" cy="106" rx="30" ry="20"/></g>
+          <g class="cloud"><ellipse cx="178" cy="48" rx="40" ry="11"/><ellipse cx="166" cy="40" rx="18" ry="13"/><ellipse cx="190" cy="38" rx="20" ry="15"/></g>
+        </g>
+        <path id="mountain" d="M24 312 L92 238 L104 226 L114 214 L120 210 L128 216 L140 230 L160 252 L218 312 Z" fill="#9AA6B4"/>
+        <path id="snowcap" d="M104 226 L114 214 L120 210 L128 216 L140 230 L133 227 L127 233 L120 225 L113 234 L108 228 Z" fill="#FFFFFF"/>
+        <path id="farHill" d="M-10 316 Q60 294 140 302 Q240 312 320 294 Q364 286 410 298 L410 340 L-10 340 Z" fill="#9B8A55"/>
+        <path id="hill" d="M-10 334 Q110 306 200 318 Q300 330 410 312 L410 410 L-10 410 Z" fill="#D8B48E"/>
+        <g id="plant"></g>
+      </svg>
+      <canvas id="ambient"></canvas>
+      <div class="embed-cap" id="embedCap" aria-hidden="true"></div>
+      <div class="actions">
+          <button class="btn primary" id="aboutBtn" type="button" aria-haspopup="dialog">About this plant</button>
+          <button class="icon-btn" id="play" type="button" aria-label="Pause">
+            <svg viewBox="0 0 24 24" id="playIcon"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+          </button>
+        </div>
+    </div>
+  </div>
 
-<div id="scrim" class="scrim" hidden>
-  <section id="menuDlg" class="dlg" role="dialog" aria-modal="true" aria-labelledby="menuTitle" hidden>
-    <h2 id="menuTitle">Menu</h2>
-    <div class="actions">
-      <button class="btn solid" id="btnNew" type="button">New deal</button>
-      <button class="btn soft" id="btnRestart" type="button">Restart this deal</button>
-    </div>
-    <div class="row">
-      <span>Play deal number</span>
-      <input id="dealInput" type="number" min="1" max="999999" inputmode="numeric" placeholder="1–999999" aria-label="Deal number">
-      <button class="btn soft" id="btnPlay" type="button">Play</button>
-    </div>
-    <div class="row">
-      <span>Theme</span>
-      <div class="seg" role="group" aria-label="Theme">
-        <button type="button" data-theme-opt="light">Light</button>
-        <button type="button" data-theme-opt="dark">Dark</button>
-        <button type="button" data-theme-opt="auto">Auto</button>
+  <section class="info" aria-live="polite">
+    <div class="info-text" id="infoText">
+      <h2 class="name" id="name"></h2>
+      <div class="details" id="details">
+        <p class="d-latin" id="dLatin"></p>
+        <p class="d-fact" id="dFact"></p>
+        <dl class="d-list">
+          <div><dt>When to look</dt><dd id="dLook"></dd></div>
+          <div><dt>Habitat</dt><dd id="dHabitat"></dd></div>
+          <div><dt>Where to see it around Portland</dt><dd id="dWhere"></dd></div>
+        </dl>
       </div>
     </div>
-    <label class="check"><input type="checkbox" id="optAuto"><span>Send safe cards to the foundations automatically</span></label>
-    <dl class="stats" id="statsList"></dl>
-    <details class="how">
-      <summary>How to play</summary>
-      <p>Move every card to the four foundations at the top right, building each suit from Ace up to King.</p>
-      <p>On the table, stack cards downward in alternating colors. The four free cells at top left each hold one card.</p>
-      <p>The Scene button randomizes the animated background: new colors and new shapes every time.</p>
-      <p>Tap a card once and it moves to the best spot: a foundation first, then a matching column, then a free cell. To choose the spot yourself, drag the card or run of cards. Moving a run needs enough free cells and empty columns.</p>
-    </details>
-    <button class="btn soft close" id="btnClose" type="button">Close</button>
   </section>
-  <section id="winDlg" class="dlg" role="dialog" aria-modal="true" aria-labelledby="winTitle" hidden>
-    <h2 id="winTitle">Solved</h2>
-    <p id="winText"></p>
-    <div class="actions">
-      <button class="btn solid" id="btnWinNew" type="button">New deal</button>
-      <button class="btn soft" id="btnWinReplay" type="button">Replay this deal</button>
+
+  <nav class="timeline" aria-label="Choose a month">
+    <div class="tl-seasons" id="tlSeasons"></div>
+    <div class="tl-wrap" id="tlWrap">
+      <div class="tl-track"></div>
+      <div class="tl-dots" id="tlDots" aria-hidden="true"></div>
+      <div class="tl-thumb" id="tlThumb" aria-hidden="true"></div>
+      <div class="tl-tip" id="tlTip" aria-hidden="true"></div>
+      <input class="tl-range" id="tlRange" type="range" min="0" max="11" step="1" value="0" aria-label="Month">
     </div>
-  </section>
-</div>
+    <div class="tl-months" id="tlMonths" aria-hidden="true"></div>
+  </nav>
 
+</main>
+
+<dialog class="card" id="card" aria-labelledby="cardName" tabindex="-1">
+  <div class="card-inner">
+    <button class="icon-btn close" id="cardClose" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z"/></svg>
+    </button>
+    <p class="when" id="cardWhen"></p>
+    <h2 id="cardName"></h2>
+    <p class="latin" id="cardLatin"></p>
+    <p class="fact" id="cardFact"></p>
+    <dl>
+      <div><dt>When to look</dt><dd id="cardLook"></dd></div>
+      <div><dt>Habitat</dt><dd id="cardHabitat"></dd></div>
+      <div><dt>Where to see it around Portland</dt><dd id="cardWhere"></dd></div>
+    </dl>
+  </div>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
 <script>
-(() => {
-'use strict';
-
-/* ---------- helpers ---------- */
-const $ = s => document.querySelector(s);
-const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-const SUIT_NAMES = ['spades','hearts','diamonds','clubs'];
-const rank = id => id % 13 + 1;
-const suit = id => Math.floor(id / 13);
-const isRed = id => { const s = suit(id); return s === 1 || s === 2; };
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-const fmt = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
-const cancelAnims = el => { try { el.getAnimations().forEach(a => a.cancel()); } catch (e) {} };
-
-const store = {
-  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
-};
-let stats = Object.assign({ played: 0, won: 0, streak: 0, bestMoves: null, bestTime: null }, store.get('fc:stats', {}));
-let settings = Object.assign({ auto: true, theme: 'light' }, store.get('fc:settings', {}));
-
-function mulberry32(a) {
-  return function () {
-    a |= 0; a = a + 0x6D2B79F5 | 0;
-    let t = Math.imul(a ^ a >>> 15, 1 | a);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-function randomSeed() {
-  try { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % 999999 + 1; }
-  catch (e) { return Math.floor(Math.random() * 999999) + 1; }
-}
-function dealCols(seed) {
-  const rnd = mulberry32((seed * 2654435761) >>> 0);
-  const deck = [...Array(52).keys()];
-  for (let i = 51; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
-  const cols = [[], [], [], [], [], [], [], []];
-  deck.forEach((c, i) => cols[i % 8].push(c));
-  return cols;
-}
-
-/* ---------- state ---------- */
-let G;
-function newState(seed) {
-  return { seed, cols: dealCols(seed), cells: [null, null, null, null], found: [[], [], [], []],
-           moves: 0, hist: [], started: false, won: false, t0: 0, elapsed: 0, last: null };
-}
-const snap = () => JSON.stringify({ cols: G.cols, cells: G.cells, found: G.found });
-
-const board = $('#board');
-const hudMoves = $('#moves'), hudTime = $('#time'), hudDeal = $('#dealNo');
-const undoBtn = $('#undo'), hintBtn = $('#hint');
-let busy = true, dealing = false, autoRuns = 0, sel = null, cur = null, motionScale = 1;
-let hintT = null, winT = null, boostT = null, dealT = null, casc = false;
-const pos = [];
-let zones = { col: [], cell: [], found: [] };
-let geo = { cw: 60, ch: 90 };
-
-/* ---------- DOM ---------- */
-const slotEls = { col: [], cell: [], found: [] };
-function mkSlot(kind, i) {
-  const el = document.createElement('div');
-  el.className = 'slot ' + kind + (kind === 'found' && (i === 1 || i === 2) ? ' red' : '');
-  el.dataset.kind = kind; el.dataset.i = i;
-  if (kind === 'found') el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#s${i}"/></svg>`;
-  board.appendChild(el);
-  slotEls[kind][i] = el;
-}
-for (let i = 0; i < 8; i++) mkSlot('col', i);
-for (let i = 0; i < 4; i++) mkSlot('cell', i);
-for (let i = 0; i < 4; i++) mkSlot('found', i);
-
-const PIP_SIZE = { 1: .52, 2: .3, 3: .3, 4: .27, 5: .27, 6: .25, 7: .23, 8: .22, 9: .2, 10: .2 };
-const PX = { L: .29, C: .5, R: .71 };
-const PY = u => .47 + .41 * u;
-const LAYOUT = {
-  1: [['C', .5]],
-  2: [['C', 0], ['C', 1]],
-  3: [['C', 0], ['C', .5], ['C', 1]],
-  4: [['L', 0], ['R', 0], ['L', 1], ['R', 1]],
-  5: [['L', 0], ['R', 0], ['C', .5], ['L', 1], ['R', 1]],
-  6: [['L', 0], ['R', 0], ['L', .5], ['R', .5], ['L', 1], ['R', 1]],
-  7: [['L', 0], ['R', 0], ['C', .25], ['L', .5], ['R', .5], ['L', 1], ['R', 1]],
-  8: [['L', 0], ['R', 0], ['C', .25], ['L', .5], ['R', .5], ['C', .75], ['L', 1], ['R', 1]],
-  9: [['L', 0], ['R', 0], ['L', .333], ['R', .333], ['C', .5], ['L', .667], ['R', .667], ['L', 1], ['R', 1]],
-  10: [['L', 0], ['R', 0], ['C', .167], ['L', .333], ['R', .333], ['L', .667], ['R', .667], ['C', .833], ['L', 1], ['R', 1]]
-};
-function cardBody(id) {
-  const r = rank(id), s = suit(id);
-  let body;
-  if (r <= 10) {
-    body = LAYOUT[r].map(([c, u]) =>
-      `<svg class="p${u > .5 ? ' f' : ''}" style="left:${PX[c] * 100}%;top:${PY(u) * 100}%;width:calc(var(--cw)*${PIP_SIZE[r]})" viewBox="0 0 24 24" aria-hidden="true"><use href="#s${s}"/></svg>`
-    ).join('');
-  } else {
-    body = `<div class="face"><svg class="art" viewBox="0 0 48 56" aria-hidden="true"><use href="#f${r - 1}"/></svg><svg class="fs" viewBox="0 0 24 24" aria-hidden="true"><use href="#s${s}"/></svg></div>`;
-  }
-  return `<span class="idx"><b>${RANKS[r - 1]}</b><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#s${s}"/></svg></span>` + body;
-}
-
-const cardEls = [];
-for (let id = 0; id < 52; id++) {
-  const el = document.createElement('div');
-  el.className = 'card ' + (isRed(id) ? 'red' : 'blk');
-  el.dataset.id = id;
-  el.setAttribute('role', 'button');
-  el.setAttribute('aria-label', RANKS[rank(id) - 1] + ' of ' + SUIT_NAMES[suit(id)]);
-  el.innerHTML = cardBody(id);
-  board.appendChild(el);
-  cardEls[id] = el;
-}
-
-/* ---------- layout ---------- */
-const RATIO = 1.5;
-function pulseSlot(s, ms) {
-  setTimeout(() => {
-    if (!G) return;
-    const el = slotEls.found[s];
-    el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
-    if (G.found[s].length === 13) el.classList.add('complete');
-  }, Math.max(0, ms - 80));
-}
-function layout(extraBoost) {
-  if (casc) return;
-  const W = board.clientWidth, H = board.clientHeight;
-  if (!W || !H) return;
-  const small = W < 520;
-  const pad = small ? 5 : 18;
-  const g = small ? 5 : Math.max(10, W * 0.012);
-  const rowGap = small ? 12 : 24;
-  let cw = Math.min(100, (W - 2 * pad - 7 * g) / 8);
-  cw = Math.min(cw, (H - 2 * pad - rowGap) / 3.6 / RATIO);
-  cw = Math.max(cw, 24);
-  const ch = cw * RATIO;
-  const x0 = (W - (8 * cw + 7 * g)) / 2;
-  const colY = pad + ch + rowGap;
-  const colX = i => x0 + i * (cw + g);
-  const maxLen = Math.max(1, ...G.cols.map(c => c.length));
-  let off = ch * 0.32;
-  if (maxLen > 1) off = Math.max(ch * 0.1, Math.min(off, (H - pad - colY - ch) / (maxLen - 1)));
-  geo = { cw, ch };
-  board.style.setProperty('--cw', cw + 'px');
-  board.style.setProperty('--ch', ch + 'px');
-
-  let anyMoved = false;
-  const boost = extraBoost || [];
-  // returns 0 when the card did not move, otherwise the ms until it lands
-  const place = (id, x, y, z, mi) => {
-    const old = pos[id];
-    const moved = !old || old.x !== x || old.y !== y || boost.includes(id);
-    let total = 0;
-    pos[id] = { x, y };
-    const el = cardEls[id];
-    if (moved) {
-      anyMoved = true; total = 1;
-      if (old && !dealing && !reduceMotion) {
-        const dist = Math.hypot(x - old.x, y - old.y) || 60;
-        const dur = Math.round(Math.min(900, Math.max(460, 380 + dist * 0.55)) * motionScale);
-        const delay = Math.min(mi * 45, 270);
-        el.style.transition = `transform ${dur}ms var(--ease) ${delay}ms, translate .3s var(--ease), scale .3s var(--ease), box-shadow .3s`;
-        try { el.animate([{ scale: '1' }, { scale: '1.035', offset: .45 }, { scale: '1' }], { duration: dur, delay, easing: 'ease-in-out' }); } catch (e) {}
-        total = dur + delay;
-      }
+/* If GSAP fails to load, a tiny stand-in applies end states instantly,
+   so the guide still works (as a slideshow) instead of breaking. */
+if (typeof window.gsap === "undefined") {
+  const list = t => (Array.isArray(t) ? t : [t]).filter(Boolean);
+  const apply = (t, v) => list(t).forEach(el => {
+    for (const k in v) {
+      const val = v[k];
+      if (["duration", "ease", "delay", "stagger", "overwrite", "onComplete", "onUpdate", "immediateRender"].includes(k)) continue;
+      if (k === "attr") for (const a in val) el.setAttribute(a, val[a]);
+      else if (k === "morphSVG") el.setAttribute("d", val);
+      else if (k.startsWith("--")) el.style.setProperty(k, val);
+      else if (k === "y") el.style.transform = `translateY(${val}px)`;
+      else if (el instanceof Element) el.style[k] = typeof val === "number" && k === "width" ? val + "px" : val;
+      else el[k] = val;
     }
-    el.style.transform = `translate(${x}px,${y}px)`;
-    el.style.zIndex = z + (moved ? 400 : 0);
-    return total;
-  };
-  G.cols.forEach((c, i) => { let mi = 0; c.forEach((id, k) => { if (place(id, colX(i), colY + k * off, 10 + k, mi)) mi++; }); });
-  G.cells.forEach((id, i) => { if (id != null) place(id, colX(i), pad, 10, 0); });
-  G.found.forEach((p, s) => {
-    p.forEach((id, k) => {
-      const t = place(id, colX(4 + s), pad, 10 + k, 0);
-      if (t > 1 && k === p.length - 1) pulseSlot(s, t);
-    });
-    if (p.length < 13) slotEls.found[s].classList.remove('complete');
   });
-
-  for (let i = 0; i < 8; i++) slotEls.col[i].style.transform = `translate(${colX(i)}px,${colY}px)`;
-  for (let i = 0; i < 4; i++) {
-    slotEls.cell[i].style.transform = `translate(${colX(i)}px,${pad}px)`;
-    slotEls.found[i].style.transform = `translate(${colX(4 + i)}px,${pad}px)`;
-  }
-  zones.col = G.cols.map((c, i) => ({ x: colX(i), y: colY, w: cw, h: Math.max(ch, (c.length - 1) * off + ch) }));
-  zones.cell = [0, 1, 2, 3].map(i => ({ x: colX(i), y: pad, w: cw, h: ch }));
-  zones.found = [0, 1, 2, 3].map(i => ({ x: colX(4 + i), y: pad, w: cw, h: ch }));
-
-  if (anyMoved) { clearTimeout(boostT); boostT = setTimeout(() => layout(), 1500); }
-}
-new ResizeObserver(() => { if (G) layout(); }).observe(board);
-
-/* ---------- rules ---------- */
-function loc(id) {
-  for (let i = 0; i < 8; i++) { const k = G.cols[i].indexOf(id); if (k >= 0) return { t: 'col', i, k }; }
-  const c = G.cells.indexOf(id);
-  if (c >= 0) return { t: 'cell', i: c };
-  return { t: 'found', i: suit(id) };
-}
-const srcOf = l => l.t === 'col' ? { t: 'col', i: l.i, k: l.k } : { t: 'cell', i: l.i };
-const srcCards = s => s.t === 'col' ? G.cols[s.i].slice(s.k) : [G.cells[s.i]];
-const stacks = (upper, lower) => rank(upper) === rank(lower) + 1 && isRed(upper) !== isRed(lower);
-function isSeq(i, k) {
-  const c = G.cols[i];
-  for (let j = k; j < c.length - 1; j++) if (!stacks(c[j], c[j + 1])) return false;
-  return true;
-}
-const freeCount = () => G.cells.filter(x => x == null).length;
-function maxMove(toEmpty) {
-  let e = G.cols.filter(c => !c.length).length;
-  if (toEmpty) e--;
-  return (freeCount() + 1) * Math.pow(2, Math.max(0, e));
-}
-function canMove(s, d) {
-  const cards = srcCards(s), c0 = cards[0];
-  if (c0 == null) return false;
-  if (d.t === 'col') {
-    if (s.t === 'col' && s.i === d.i) return false;
-    const t = G.cols[d.i];
-    if (!t.length) return cards.length <= maxMove(true);
-    return stacks(t[t.length - 1], c0) && cards.length <= maxMove(false);
-  }
-  if (d.t === 'cell') return cards.length === 1 && G.cells[d.i] == null && !(s.t === 'cell' && s.i === d.i);
-  if (d.t === 'found') return cards.length === 1 && suit(c0) === d.i && G.found[d.i].length === rank(c0) - 1;
-  return false;
-}
-function applyMove(s, d) {
-  let cards;
-  if (s.t === 'col') cards = G.cols[s.i].splice(s.k);
-  else { cards = [G.cells[s.i]]; G.cells[s.i] = null; }
-  if (d.t === 'col') G.cols[d.i].push(...cards);
-  else if (d.t === 'cell') G.cells[d.i] = cards[0];
-  else G.found[d.i].push(cards[0]);
-  return cards;
-}
-function selectable(l) {
-  if (l.t === 'col') return isSeq(l.i, l.k);
-  return l.t === 'cell';
-}
-function validDests(s) {
-  const out = []; let emptyDone = false, cellDone = false;
-  for (let i = 0; i < 4; i++) { const d = { t: 'found', i }; if (canMove(s, d)) out.push(d); }
-  for (let i = 0; i < 8; i++) {
-    const d = { t: 'col', i };
-    if (!canMove(s, d)) continue;
-    if (!G.cols[i].length) {
-      if (s.t === 'col' && s.k === 0) continue;
-      if (emptyDone) continue;
-      emptyDone = true;
+  const handle = fn => { const id = setTimeout(() => fn && fn(), 0); return { kill: () => clearTimeout(id), isActive: () => false }; };
+  window.gsap = {
+    registerPlugin() { throw new Error("no gsap"); },
+    set: apply,
+    to: (t, v) => { apply(t, v); return handle(v.onComplete); },
+    fromTo: (t, a, b) => { apply(t, b); return handle(b.onComplete); },
+    delayedCall: (s, fn) => { const id = setTimeout(fn, s * 1000); return { kill: () => clearTimeout(id) }; },
+    killTweensOf() {},
+    globalTimeline: { pause() {}, resume() {} },
+    timeline(opts = {}) {
+      const tl = {
+        to(t, v) { apply(t, v); return tl; },
+        fromTo(t, a, b) { apply(t, b); return tl; },
+        set(t, v) { apply(t, v); return tl; },
+        add(fn) { if (typeof fn === "function") fn(); return tl; },
+        kill() { clearTimeout(tl._id); },
+        isActive: () => false
+      };
+      tl._id = setTimeout(() => opts.onComplete && opts.onComplete(), 0);
+      return tl;
     }
-    out.push(d);
+  };
+}
+
+/* =========================================================
+   CONFIG: edit timing, colors, and plants here
+   ========================================================= */
+const CONFIG = {
+  timing: {
+    morph: 1.7,          // seconds per morph (two soft legs through a bud shape)
+    hold: 2.6,           // seconds each plant is held (it keeps swaying)
+    grow: 0.5,           // bottom-to-top delay across a plant
+    stagger: 0.08,       // stagger between caption lines
+    reducedFade: 0.35    // crossfade length when reduced motion is on
+  },
+  wind: {
+    amp: 7.5,            // sway strength at the top of a plant (viewBox units)
+    speed: 1.2,          // sway speed
+    rampIn: 1.2          // seconds to ease the sway back in after a morph
+  },
+  slots: 76,
+  // Mt. Hood snow cover by month, December first (0 = summer minimum, 1 = deep winter)
+  hoodSnow: [0.82, 1, 1, 0.92, 0.78, 0.6, 0.42, 0.26, 0.14, 0.12, 0.3, 0.58],             // max shapes per plant
+  shadow: "rgba(28,38,30,0.15)",
+  months: ["December", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November"],
+  seasons: {
+    winter: {
+      label: "Winter", ambient: "rainsnow", accent: "#4A6178",
+      bg: "#E3E8EC", bgDark: "#141B23",
+      skyTop: "#A6B5C3", skyBottom: "#D6DDE3", skyTopDark: "#1A2431", skyBottomDark: "#2C3847",
+      sun: "#EDF1F4", sunDark: "#3C4B5C", cloud: "#C5CFD8", cloudDark: "#35434F", clouds: [0.95, 0.95, 0.85],
+      mountain: "#8C9DAE", mountainDark: "#2C3846", farHill: "#6F8578", farHillDark: "#223029",
+      hill: "#AFBDA9", hillDark: "#27332A",
+      c: { moss: "#557245", mossLt: "#6E8C5A", deep: "#2F4A2C", shade: "#243B22", vein: "#93AE80", fog: "#C4CFD7",
+           snow: "#F8FAFB", bark: "#6B5A4C", barkDk: "#4E4136", sage: "#7F9474", sageDk: "#62775A" }
+    },
+    spring: {
+      label: "Spring", ambient: null, accent: "#D9607A",
+      bg: "#F6ECEE", bgDark: "#211920",
+      skyTop: "#A4D0EE", skyBottom: "#E4F2F8", skyTopDark: "#1A2638", skyBottomDark: "#2B3B4E",
+      sun: "#FFF0C4", sunDark: "#4A4234", cloud: "#FFFFFF", cloudDark: "#3A4A5E", clouds: [0.95, 0, 0.8],
+      mountain: "#9CB3CD", mountainDark: "#2E3E57", farHill: "#86AC70", farHillDark: "#28382A",
+      hill: "#C4DFA8", hillDark: "#2E3A25",
+      c: { blush: "#EFA7B5", blushLt: "#FBE0E6", pink: "#D9607A", pinkDk: "#B94763", lavender: "#A597DA", camas: "#6D6FD0", camasDk: "#4B4BA8",
+           fresh: "#86BA5E", freshDk: "#6CA047", leaf: "#4C8A3C", leafDk: "#3A7030", vein: "#B2D694",
+           white: "#FFFFFF", petalShade: "#F0E2E8", pollen: "#EBC354", bark: "#6E4E3E", barkDk: "#523A2E" }
+    },
+    summer: {
+      label: "Summer", ambient: null, accent: "#D9A21E",
+      bg: "#F5EFDC", bgDark: "#1E1B13",
+      skyTop: "#6AB3E4", skyBottom: "#D2EAF7", skyTopDark: "#13253A", skyBottomDark: "#233A51",
+      sun: "#FFD65A", sunDark: "#7C6220", cloud: "#FFFFFF", cloudDark: "#34475C", clouds: [0, 0, 0],
+      mountain: "#90A8CA", mountainDark: "#2B3C55", farHill: "#9CAC66", farHillDark: "#33381E",
+      hill: "#E3D39A", hillDark: "#3A3320",
+      c: { gold: "#F2B833", goldDk: "#DE9A1C", goldLt: "#F8D56E", amber: "#C9801A", deep: "#2F5D3A", deepDk: "#234A2D",
+           green: "#5E8E4A", greenDk: "#4A7A3A", vein: "#9CC287", sage: "#A9BA9A", sageLt: "#C8D4BC",
+           berry: "#3E4C82", berryLt: "#6474A8", bloom: "#A9B5D8", urn: "#F2C9C3", urnDk: "#D99C94",
+           dark: "#2E2440", bark: "#6D5640", barkDk: "#4F3E2E" }
+    },
+    fall: {
+      label: "Fall", ambient: "leaves", accent: "#B5472A",
+      bg: "#F3E6D8", bgDark: "#221814",
+      skyTop: "#B3C3CC", skyBottom: "#F1D8B9", skyTopDark: "#1D2430", skyBottomDark: "#3A2D29",
+      sun: "#F2A64E", sunDark: "#784826", cloud: "#EEF0F0", cloudDark: "#3A3F48", clouds: [0.85, 0.75, 0],
+      mountain: "#98A5B4", mountainDark: "#2E3743", farHill: "#9A8753", farHillDark: "#342D1F",
+      hill: "#D8B48E", hillDark: "#3B2A20",
+      c: { rust: "#B8482B", rustDk: "#8F3520", amber: "#E08A2E", amberDk: "#C0701F", crimson: "#A12538", crimsonDk: "#7C1A2A",
+           gold: "#E9B949", goldDk: "#D39F33", bark: "#5A4034", barkDk: "#3F2C24", tan: "#CF9A5E", tanDk: "#A87843", vein: "#F6D896",
+           olive: "#77833F", oliveDk: "#5C6630", oliveVein: "#A9B270", acorn: "#B98A4E", acornDk: "#94693A", cap: "#6F5234", capDk: "#553D26" }
+    }
+  },
+  plants: [] // filled below, after the shape helpers
+};
+
+/* =========================================================
+   Shape helpers (all output flat polygon path data)
+   ========================================================= */
+const G = 332; // ground line
+const R1 = n => Math.round(n * 10) / 10;
+const rad = d => d * Math.PI / 180;
+const dirOf = a => [Math.sin(rad(a)), -Math.cos(rad(a))]; // 0deg = up, clockwise
+const nrmOf = a => [Math.cos(rad(a)), Math.sin(rad(a))];
+const poly = pts => "M" + pts.map(p => R1(p[0]) + "," + R1(p[1])).join("L") + "Z";
+
+function spinePt(bx, by, a, len, bend, t) {
+  const d = dirOf(a), n = nrmOf(a);
+  return [bx + d[0] * len * t + n[0] * bend * t * t, by + d[1] * len * t + n[1] * bend * t * t];
+}
+function tangentAt(bx, by, a, len, bend, t) {
+  const p = spinePt(bx, by, a, len, bend, Math.max(0, t - 0.01));
+  const q = spinePt(bx, by, a, len, bend, Math.min(1, t + 0.01));
+  return Math.atan2(q[0] - p[0], -(q[1] - p[1])) * 180 / Math.PI;
+}
+function ribbon2(spine, wl, wr, steps) {
+  const L = [], R = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps, p = spine(t);
+    const q = spine(Math.min(1, t + 0.002)), o = spine(Math.max(0, t - 0.002));
+    let tx = q[0] - o[0], ty = q[1] - o[1];
+    const m = Math.hypot(tx, ty) || 1; tx /= m; ty /= m;
+    const a = wl(t, i), b = wr(t, i);
+    L.push([p[0] - ty * a, p[1] + tx * a]);
+    R.push([p[0] + ty * b, p[1] - tx * b]);
   }
-  for (let i = 0; i < 4; i++) {
-    const d = { t: 'cell', i };
-    if (!canMove(s, d) || cellDone) continue;
-    if (s.t === 'cell' || (s.t === 'col' && s.k === 0)) continue;
-    cellDone = true; out.push(d);
+  return poly(L.concat(R.reverse()));
+}
+const ribbon = (spine, w, steps) => ribbon2(spine, w, w, steps);
+const zero = () => 0;
+const stem = (bx, by, a, len, bend, w0, w1 = w0 * 0.5) =>
+  ribbon(t => spinePt(bx, by, a, len, bend, t), t => w0 + (w1 - w0) * t, 20);
+const stemShade = (bx, by, a, len, bend, w0, w1 = w0 * 0.5) =>
+  ribbon2(t => spinePt(bx, by, a, len, bend, t), zero, t => w0 + (w1 - w0) * t, 20);
+const leafW = w => t => w / 2 * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.8)), 0.85);
+const leaf = (bx, by, a, len, w, bend = 0) =>
+  ribbon(t => spinePt(bx, by, a, len, bend, t), leafW(w), 18);
+
+// Leaf with optional two-tone shading, midrib, and side veins
+function leafSet(bx, by, a, len, w, bend, o, widthFn = leafW(w), steps = 18) {
+  const sp = t => spinePt(bx, by, a, len, bend, t), W = widthFn;
+  const out = [{ d: ribbon(sp, W, steps), f: o.f }];
+  if (o.shade) out.push({ d: ribbon2(sp, W, zero, steps), f: o.shade });
+  if (o.vein) {
+    const vw = o.veinW || Math.max(0.7, w * 0.025);
+    out.push({ d: ribbon(t => sp(t * 0.88), t => vw * (1 - 0.7 * t), 14), f: o.vein });
+    const n = o.side || 0, ts = o.sideAt;
+    for (let j = 0; j < n; j++) {
+      const t = ts ? ts[j] : (n === 1 ? 0.45 : 0.28 + j * 0.36 / (n - 1));
+      const p = sp(t), ta = tangentAt(bx, by, a, len, bend, t), L = W(t, 1) * 1.02;
+      [1, -1].forEach(sg => out.push({ d: stem(p[0], p[1], ta + sg * 46, L, 0, vw * 0.8, 0.2), f: o.vein }));
+    }
   }
   return out;
 }
-function allSources() {
-  const srcs = [];
-  G.cols.forEach((c, i) => {
-    for (let k = c.length - 1; k >= 0; k--) {
-      if (k < c.length - 1 && !stacks(c[k], c[k + 1])) break;
-      srcs.push({ t: 'col', i, k });
-    }
-  });
-  G.cells.forEach((id, i) => { if (id != null) srcs.push({ t: 'cell', i }); });
-  return srcs;
-}
-const noMoves = () => allSources().every(s => validDests(s).length === 0);
-
-/* ---------- marks, hint, toast ---------- */
-function destEl(d) {
-  if (d.t === 'col') { const c = G.cols[d.i]; return c.length ? cardEls[c[c.length - 1]] : slotEls.col[d.i]; }
-  if (d.t === 'cell') return slotEls.cell[d.i];
-  const p = G.found[d.i]; return p.length ? cardEls[p[p.length - 1]] : slotEls.found[d.i];
-}
-function markTargets(s) { validDests(s).forEach(d => destEl(d).classList.add('target')); }
-function clearHint() {
-  clearTimeout(hintT);
-  board.querySelectorAll('.hintdest').forEach(el => el.classList.remove('target'));
-  board.querySelectorAll('.hint,.hintdest').forEach(el => el.classList.remove('hint', 'hintdest'));
-}
-function clearMarks() {
-  clearHint();
-  board.querySelectorAll('.sel,.target,.hover').forEach(el => el.classList.remove('sel', 'target', 'hover'));
-}
-function clearSel() { sel = null; clearMarks(); }
-function shake(ids) {
-  ids.forEach(id => {
-    const el = cardEls[id];
-    el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
-    setTimeout(() => el.classList.remove('shake'), 340);
-  });
-}
-let toastT = null;
-function toast(msg, ms = 2600) {
-  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms);
-}
-
-function bestHint() {
-  let best = null;
-  for (const s of allSources()) {
-    const cards = srcCards(s);
-    for (const d of validDests(s)) {
-      let score;
-      if (d.t === 'found') score = 100;
-      else if (d.t === 'col') {
-        const empty = !G.cols[d.i].length;
-        score = empty ? 12 : 50 + cards.length * 2;
-        if (s.t === 'cell') score += empty ? 5 : 8;
-        if (!empty && s.t === 'col' && s.k === 0) score += 20;
-      } else score = 4;
-      if (s.t === 'col' && s.k > 0) {
-        const nb = G.cols[s.i][s.k - 1];
-        if (G.found[suit(nb)].length === rank(nb) - 1) score += 30;
-      }
-      const L = G.last;
-      if (L && cards[0] === L.card && L.from.t === d.t && L.from.i === d.i) score -= 200;
-      if (!best || score > best.score) best = { s, d, score };
-    }
-  }
-  return best;
-}
-function showHint() {
-  if (busy || G.won) return;
-  const m = bestHint();
-  if (!m) { toast('No moves left. Undo to try another path.', 3500); return; }
-  clearMarks();
-  srcCards(m.s).forEach(id => cardEls[id].classList.add('hint'));
-  destEl(m.d).classList.add('hint', 'hintdest', 'target');
-  hintT = setTimeout(clearHint, 2800);
-}
-
-/* ---------- HUD ---------- */
-let lastMovesShown = null;
-function updateHud() {
-  if (lastMovesShown !== G.moves) {
-    hudMoves.textContent = G.moves;
-    if (lastMovesShown !== null && !reduceMotion) { hudMoves.classList.remove('tick'); void hudMoves.offsetWidth; hudMoves.classList.add('tick'); }
-    lastMovesShown = G.moves;
-  }
-  hudDeal.textContent = '#' + G.seed;
-  undoBtn.disabled = busy || autoRuns > 0 || G.won || !G.hist.length;
-  hintBtn.disabled = busy || G.won;
-}
-setInterval(() => {
-  const s = G.started && !G.won ? Math.floor((Date.now() - G.t0) / 1000) : G.elapsed;
-  hudTime.textContent = fmt(s);
-}, 500);
-
-/* ---------- moves ---------- */
-function startGame() {
-  G.started = true; G.t0 = Date.now();
-  stats.played++; store.set('fc:stats', stats);
-}
-function abandon() {
-  if (G && G.started && !G.won) { stats.streak = 0; store.set('fc:stats', stats); }
-}
-async function userMove(s, d) {
-  if (busy || G.won) return;
-  clearMarks(); sel = null;
-  G.hist.push({ s: snap(), moves: G.moves });
-  if (!G.started) startGame();
-  const cards = applyMove(s, d);
-  G.moves++; G.last = { card: cards[0], from: s };
-  updateHud();
-  layout();
-  await afterMove();
-}
-function findSafe() {
-  const cands = [];
-  G.cols.forEach(c => { if (c.length) cands.push(c[c.length - 1]); });
-  G.cells.forEach(id => { if (id != null) cands.push(id); });
-  for (const id of cands) {
-    const r = rank(id), s = suit(id);
-    if (G.found[s].length !== r - 1) continue;
-    const opp = isRed(id) ? [0, 3] : [1, 2];
-    if (r <= 2 || opp.every(o => G.found[o].length >= r - 1)) return id;
-  }
-  return null;
-}
-function findAnyFoundation() {
-  const cands = [];
-  G.cols.forEach(c => { if (c.length) cands.push(c[c.length - 1]); });
-  G.cells.forEach(id => { if (id != null) cands.push(id); });
-  const ok = cands.filter(id => G.found[suit(id)].length === rank(id) - 1);
-  ok.sort((a, b) => rank(a) - rank(b));
-  return ok.length ? ok[0] : null;
-}
-const foundTotal = () => G.found.reduce((n, p) => n + p.length, 0);
-async function sendToFoundation(id, pause = 170) {
-  applyMove(srcOf(loc(id)), { t: 'found', i: suit(id) });
-  layout();
-  await sleep(reduceMotion ? 0 : pause);
-}
-async function afterMove() {
-  const token = G;
-  autoRuns++; updateHud();
-  try {
-    let id;
-    if (settings.auto) {
-      if (findSafe() != null) await sleep(reduceMotion ? 0 : 320);
-      while (token === G && !G.won && (id = findSafe()) != null) await sendToFoundation(id);
-    }
-    if (token === G && !G.won && foundTotal() < 52 && G.cols.every((c, i) => isSeq(i, 0))) {
-      await sleep(reduceMotion ? 0 : 160);
-      motionScale = .5;
-      while (token === G && !G.won && (id = findAnyFoundation()) != null) await sendToFoundation(id, 55);
-    }
-  } finally {
-    motionScale = 1;
-    if (token === G) autoRuns--;
-  }
-  if (token !== G) return;
-  updateHud();
-  if (foundTotal() === 52) { if (!G.won) win(); }
-  else if (autoRuns === 0 && noMoves()) toast('No moves left. Undo a few moves or start a new deal.', 6000);
-}
-function undo() {
-  if (busy || autoRuns > 0 || G.won || !G.hist.length) return;
-  const h = G.hist.pop(), st = JSON.parse(h.s);
-  G.cols = st.cols; G.cells = st.cells; G.found = st.found; G.moves = h.moves; G.last = null;
-  clearSel(); updateHud(); layout();
-}
-function autoMove(s) {
-  clearSel();
-  const cards = srcCards(s);
-  const ds = validDests(s);
-  let pick =
-    ds.find(d => d.t === 'found') ||
-    ds.find(d => d.t === 'col' && G.cols[d.i].length) ||
-    ds.find(d => d.t === 'cell') ||
-    ds.find(d => d.t === 'col');
-  // a lone card can still step aside into a free cell
-  if (!pick && s.t === 'col' && cards.length === 1 && freeCount() > 0) pick = { t: 'cell', i: G.cells.indexOf(null) };
-  if (pick) { userMove(s, pick); return; }
-  shake(cards);
-  const cap = maxMove(false);
-  if (cards.length > 1 && cards.length > cap) toast(`You can move ${cap} card${cap > 1 ? 's' : ''} at a time right now.`, 2200);
-  else toast('No place for that card yet.', 1500);
-}
-
-/* ---------- win: a calm fan, no bouncing ---------- */
-function win() {
-  G.won = true;
-  G.elapsed = Math.floor((Date.now() - G.t0) / 1000);
-  stats.won++; stats.streak++;
-  const notes = [];
-  if (stats.bestMoves == null || G.moves < stats.bestMoves) { stats.bestMoves = G.moves; notes.push('fewest moves'); }
-  if (stats.bestTime == null || G.elapsed < stats.bestTime) { stats.bestTime = G.elapsed; notes.push('fastest time'); }
-  store.set('fc:stats', stats);
-  $('#winText').textContent =
-    `Deal #${G.seed} solved in ${G.moves} moves and ${fmt(G.elapsed)}.` +
-    (notes.length ? ` That's your ${notes.join(' and ')}.` : '') +
-    (stats.streak > 1 ? ` ${stats.streak} wins in a row.` : '');
-  updateHud();
-  finale();
-  winT = setTimeout(() => openDlg('winDlg'), reduceMotion ? 300 : 950);
-}
-function finale() {
-  if (reduceMotion) return;
-  casc = true;
-  const W = board.clientWidth, H = board.clientHeight, { cw, ch } = geo;
-  const A = 108, half = A / 2 * Math.PI / 180;
-  const Rw = (W / 2 - cw * 0.31 - ch * 0.39 - 6) / Math.sin(half);
-  const R = Math.max(80, Math.min(Rw, H * 0.58));
-  const cx = W / 2, cy = Math.min(H - ch * 0.7, H * 0.56 + R * 0.45);
-  for (let id = 0; id < 52; id++) {
-    const el = cardEls[id], p = pos[id];
-    const a = -A / 2 + A * id / 51, rad = a * Math.PI / 180;
-    const x = cx + R * Math.sin(rad) - cw / 2, y = cy - R * Math.cos(rad) - ch / 2;
-    el.style.transition = 'none';
-    el.style.zIndex = 2000 + id;
-    try {
-      el.animate(
-        [{ transform: `translate(${p.x}px,${p.y}px) rotate(0deg)` }, { transform: `translate(${x}px,${y}px) rotate(${a}deg)` }],
-        { duration: 500, delay: 10 + id * 6, easing: 'cubic-bezier(.4,0,.1,1)', fill: 'forwards' }
-      );
-    } catch (e) {}
-  }
-}
-function cancelFinale() {
-  casc = false; clearTimeout(winT);
-  cardEls.forEach(cancelAnims);
-}
-
-/* ---------- dealing ---------- */
-function newDeal(seed) {
-  abandon();
-  cancelFinale(); closeDlgs(); clearSel(); clearTimeout(dealT);
-  G = newState(seed);
-  pos.length = 0; autoRuns = 0; lastMovesShown = null;
-  slotEls.found.forEach(el => el.classList.remove('complete', 'pulse'));
-  updateHud();
-  playDeal();
-}
-function playDeal() {
-  busy = true; dealing = true; updateHud();
-  layout();
-  if (reduceMotion) { cardEls.forEach(el => { el.style.opacity = 1; el.style.transition = ''; }); dealing = false; busy = false; updateHud(); return; }
-  const W = board.clientWidth;
-  const start = `translate(${(W - geo.cw) / 2}px,${-geo.ch * 1.2}px)`;
-  cardEls.forEach(el => {
-    cancelAnims(el);
-    el.style.transition = 'none'; el.style.transform = start; el.style.opacity = 0;
-    el.style.rotate = ((Math.random() * 2 - 1) * 9) + 'deg'; el.style.scale = '.92';
-  });
-  void board.offsetWidth;
-  const STEP = 18;
-  G.cols.forEach((c, i) => c.forEach((id, k) => {
-    const n = k * 8 + i, el = cardEls[id], p = pos[id], d = n * STEP;
-    el.style.transition =
-      `transform 1s var(--ease) ${d}ms, rotate 1s var(--ease) ${d}ms, scale 1s var(--ease) ${d}ms, opacity .4s ease-out ${d}ms`;
-    el.style.opacity = 1;
-    el.style.transform = `translate(${p.x}px,${p.y}px)`;
-    el.style.rotate = '0deg'; el.style.scale = '1';
-  }));
-  dealT = setTimeout(() => {
-    cardEls.forEach(el => { el.style.transition = ''; el.style.rotate = ''; el.style.scale = ''; });
-    dealing = false; busy = false; updateHud();
-  }, 51 * STEP + 1150);
-}
-
-/* ---------- pointer input ---------- */
-function zoneAt(px, py) {
-  for (let i = 0; i < 8; i++) {
-    const z = zones.col[i];
-    if (px >= z.x - 3 && px <= z.x + z.w + 3 && py >= z.y - 3) return { t: 'col', i };
-  }
-  return null;
-}
-const overlap = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
-function findDrop(src, cards, dx, dy) {
-  const p = pos[cards[0]];
-  const r = { x: p.x + dx, y: p.y + dy, w: geo.cw, h: geo.ch };
-  let best = null, bestA = 0;
-  const test = (d, z) => { const a = overlap(r, z); if (a > bestA && canMove(src, d)) { bestA = a; best = d; } };
-  zones.found.forEach((z, i) => test({ t: 'found', i }, z));
-  zones.cell.forEach((z, i) => test({ t: 'cell', i }, z));
-  zones.col.forEach((z, i) => test({ t: 'col', i }, z));
-  return bestA > geo.cw * geo.ch * 0.18 ? best : null;
-}
-let hovEl = null;
-function setHover(d) {
-  const el = d ? destEl(d) : null;
-  if (el === hovEl) return;
-  if (hovEl) hovEl.classList.remove('hover');
-  hovEl = el;
-  if (hovEl) hovEl.classList.add('hover');
-}
-function beginDrag() {
-  clearSel();
-  const s = srcOf(cur.l);
-  cur.src = s; cur.cards = srcCards(s); cur.els = cur.cards.map(id => cardEls[id]); cur.drag = true;
-  cur.els.forEach((el, k) => { cancelAnims(el); el.classList.add('drag'); el.style.zIndex = 1000 + k; });
-  markTargets(s);
-}
-
-board.addEventListener('pointerdown', e => {
-  if (busy || G.won || e.button > 0) return;
-  clearHint();
-  const r = board.getBoundingClientRect();
-  const px = e.clientX - r.left, py = e.clientY - r.top;
-  const el = e.target.closest('.card,.slot');
-  const d = { x: e.clientX, y: e.clientY, id: null, l: null, target: null, drag: false, draggable: false };
-  if (el && el.classList.contains('card')) {
-    d.id = +el.dataset.id; d.l = loc(d.id);
-    d.draggable = selectable(d.l) && d.l.t !== 'found';
-    d.target = { t: d.l.t, i: d.l.i };
-  } else if (el) {
-    d.target = { t: el.dataset.kind, i: +el.dataset.i };
-  } else {
-    const z = zoneAt(px, py);
-    if (!z) return;
-    d.target = z;
-  }
-  cur = d;
-});
-window.addEventListener('pointermove', e => {
-  if (!cur) return;
-  const dx = e.clientX - cur.x, dy = e.clientY - cur.y;
-  if (!cur.drag) {
-    if (!cur.draggable || Math.hypot(dx, dy) < 10) return;
-    beginDrag();
-  }
-  cur.els.forEach((el, k) => { const p = pos[cur.cards[k]]; el.style.transform = `translate(${p.x + dx}px,${p.y + dy}px)`; });
-  setHover(findDrop(cur.src, cur.cards, dx, dy));
-});
-window.addEventListener('pointerup', e => {
-  if (!cur) return;
-  const c = cur; cur = null;
-  if (c.drag) {
-    const dx = e.clientX - c.x, dy = e.clientY - c.y;
-    hovEl = null;
-    c.els.forEach(el => el.classList.remove('drag'));
-    clearMarks();
-    if (Math.hypot(dx, dy) < 26) { layout(c.cards); onTap(c); }   // a shaky tap still counts as a tap
-    else {
-      const d = findDrop(c.src, c.cards, dx, dy);
-      if (d) userMove(c.src, d); else layout(c.cards);
-    }
-  } else onTap(c);
-});
-window.addEventListener('pointercancel', () => {
-  if (!cur) return;
-  const c = cur; cur = null;
-  if (c.drag) { hovEl = null; c.els.forEach(el => el.classList.remove('drag')); clearMarks(); layout(c.cards); }
-});
-function onTap(c) {
-  if (c.id == null || c.l.t === 'found') return;
-  if (!selectable(c.l)) { shake([c.id]); toast('Only an ordered run can move together.', 1800); return; }
-  autoMove(srcOf(c.l));
-}
-
-/* ---------- dialogs & controls ---------- */
-const scrim = $('#scrim'), menuDlg = $('#menuDlg'), winDlg = $('#winDlg');
-let lastFocus = null;
-function renderStats() {
-  const rate = stats.played ? Math.round(stats.won / stats.played * 100) + '%' : '–';
-  const rows = [
-    ['Played', stats.played], ['Won', stats.won], ['Win rate', rate], ['Win streak', stats.streak],
-    ['Fewest moves', stats.bestMoves == null ? '–' : stats.bestMoves], ['Best time', stats.bestTime != null ? fmt(stats.bestTime) : '–']
+const hollyW = w => (t, i) => w / 2 * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.85)), 0.7) * (i % 2 ? 1 : 0.7);
+function hollySet(bx, by, a, len, w, f, shade, vein) {
+  const sp = t => spinePt(bx, by, a, len, 0, t);
+  return [
+    { d: ribbon(sp, hollyW(w), 12), f },
+    { d: ribbon2(sp, hollyW(w), zero, 12), f: shade },
+    { d: ribbon(t => sp(t * 0.85), t => 0.9 * (1 - 0.7 * t), 10), f: vein }
   ];
-  $('#statsList').innerHTML = rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
 }
-function openDlg(id) {
-  lastFocus = document.activeElement;
-  if (id === 'menuDlg') { renderStats(); $('#optAuto').checked = settings.auto; }
-  scrim.hidden = false; menuDlg.hidden = id !== 'menuDlg'; winDlg.hidden = id !== 'winDlg';
-  const first = (id === 'menuDlg' ? $('#btnNew') : $('#btnWinNew'));
-  setTimeout(() => first.focus(), 0);
+// Rounded, deeply lobed oak leaf outline
+const oakW = w => t => w / 2 * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.9)), 0.55) * (0.46 + 0.54 * Math.pow(Math.abs(Math.sin(Math.PI * 3.5 * t)), 0.6));
+function ell(cx, cy, rx, ry, rotDeg = 0) {
+  const pts = [], N = 32, c = Math.cos(rad(rotDeg)), s = Math.sin(rad(rotDeg));
+  for (let i = 0; i < N; i++) {
+    const t = i / N * Math.PI * 2, x = Math.cos(t) * rx, y = Math.sin(t) * ry;
+    pts.push([cx + x * c - y * s, cy + x * s + y * c]);
+  }
+  return poly(pts);
 }
-function closeDlgs() {
-  scrim.hidden = true; menuDlg.hidden = true; winDlg.hidden = true;
-  if (lastFocus && lastFocus.focus) lastFocus.focus();
+const circ = (cx, cy, r) => ell(cx, cy, r, r);
+const shadow = (rx, cx = 200) => ({ d: ell(cx, G + 3, rx, 7), f: CONFIG.shadow });
+function polar(cx, cy, rFn, N, rot = 0) {
+  const pts = [];
+  for (let i = 0; i < N; i++) {
+    const th = i / N * Math.PI * 2, r = rFn(th), a = th + rad(rot);
+    pts.push([cx + Math.sin(a) * r, cy - Math.cos(a) * r]);
+  }
+  return poly(pts);
 }
-scrim.addEventListener('click', e => { if (e.target === scrim && !menuDlg.hidden) closeDlgs(); });
-$('#menu').addEventListener('click', () => openDlg('menuDlg'));
-$('#btnClose').addEventListener('click', closeDlgs);
-$('#btnNew').addEventListener('click', () => newDeal(randomSeed()));
-$('#btnRestart').addEventListener('click', () => newDeal(G.seed));
-$('#btnWinNew').addEventListener('click', () => newDeal(randomSeed()));
-$('#btnWinReplay').addEventListener('click', () => newDeal(G.seed));
-function playNumber() {
-  const n = Number($('#dealInput').value);
-  if (!Number.isInteger(n) || n < 1 || n > 999999) { toast('Enter a deal number from 1 to 999999.'); return; }
-  newDeal(n);
+const flower = (cx, cy, n, R, r0, k, rot = 0) =>
+  polar(cx, cy, th => r0 + (R - r0) * Math.pow(Math.abs(Math.cos(n * th / 2)), k), n * 14, rot);
+function maple(cx, cy, size, rot, lobes, span = 300, depth = 0.64) {
+  const pts = [], N = lobes * 16, start = -span / 2;
+  for (let i = 0; i <= N; i++) {
+    const u = i / N, phi = start + span * u;
+    let r = (1 - depth) + depth * Math.pow(Math.abs(Math.sin(Math.PI * lobes * u)), 1.8) * (0.7 + 0.3 * Math.sin(Math.PI * u));
+    r += 0.035 * Math.abs(Math.sin(Math.PI * lobes * 5 * u));
+    const a = rad(phi + rot);
+    pts.push([cx + Math.sin(a) * r * size, cy - Math.cos(a) * r * size]);
+  }
+  const b = rad(rot + 180);
+  pts.push([cx + Math.sin(b) * size * 0.12, cy - Math.cos(b) * size * 0.12]);
+  return poly(pts);
 }
-$('#btnPlay').addEventListener('click', playNumber);
-$('#dealInput').addEventListener('keydown', e => { if (e.key === 'Enter') playNumber(); });
-$('#optAuto').addEventListener('change', e => { settings.auto = e.target.checked; store.set('fc:settings', settings); });
-undoBtn.addEventListener('click', undo);
-hintBtn.addEventListener('click', showHint);
-
-/* ---------- living background ---------- */
-const bgCanvas = $('#bg'), bgCtx = bgCanvas.getContext('2d');
-const darkMQ = window.matchMedia('(prefers-color-scheme: dark)');
-const isDark = () => settings.theme === 'dark' || (settings.theme === 'auto' && darkMQ.matches);
-function applyTheme() {
-  if (settings.theme === 'auto') document.documentElement.removeAttribute('data-theme');
-  else document.documentElement.setAttribute('data-theme', settings.theme);
-  document.querySelectorAll('[data-theme-opt]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themeOpt === settings.theme)));
-  if (reduceMotion && scene) renderBg(performance.now());
-}
-let bgW = 0, bgH = 0, scene = null, prevScene = null, bgRaf = 0, bgLast = 0;
-const PATTERNS = ['contours', 'spiral', 'mandala', 'flow', 'moire', 'tunnel'];
-const PATTERN_NAMES = { contours: 'Ripple field', spiral: 'Spiral', mandala: 'Mandala', flow: 'Flow lines', moire: 'Moiré', tunnel: 'Tunnel' };
-const SCHEMES = { analogous: [0, 26, -26, 52], triad: [0, 120, 240, 60], split: [0, 150, 210, 30], duo: [0, 180, 16, 196], mono: [0, 12, -12, 24] };
-const TAU = Math.PI * 2;
-const rnd = (a, b) => a + Math.random() * (b - a);
-const pickOne = a => a[Math.floor(Math.random() * a.length)];
-const sign = () => (Math.random() < .5 ? -1 : 1);
-
-function makeScene() {
-  let pattern;
-  do { pattern = pickOne(PATTERNS); } while (scene && pattern === scene.pattern);
-  const base = rnd(0, 360), offs = SCHEMES[pickOne(Object.keys(SCHEMES))];
-  const blobs = Array.from({ length: Math.round(rnd(3, 5)) }, () => ({
-    ax: rnd(.16, .4), ay: rnd(.16, .4), fx: rnd(.05, .12), fy: rnd(.05, .12), px: rnd(0, TAU), py: rnd(0, TAU),
-    r: rnd(.36, .68), fr: rnd(.08, .18), pr: rnd(0, TAU),
-    lobes: Math.round(rnd(2, 6)), amp: rnd(.08, .22), sp: rnd(.12, .32) * sign(), ph: rnd(0, TAU),
-    rot: rnd(.02, .06) * sign(), a: rnd(.15, .24)
-  }));
-  return {
-    pattern, name: PATTERN_NAMES[pattern], blobs,
-    hues: offs.map(o => (base + o + rnd(-8, 8) + 360) % 360),
-    sat: Math.round(rnd(24, 38)),
-    s: rnd(30, 50), speed: rnd(.7, 1.2), phase: rnd(0, 100),
-    k: pickOne([3, 4, 5, 6, 7, 8, 9]), arms: pickOne([5, 7, 9, 12]), sides: pickOne([3, 4, 5, 6, 8]),
-    twist: rnd(.4, 1.6) * sign(), spin: rnd(.04, .1) * sign(), angle: rnd(0, Math.PI),
-    f1: rnd(.005, .011), f2: rnd(.01, .02), born: performance.now()
-  };
-}
-
-function drawScene(sc, time, mul) {
-  if (mul <= 0.01) return;
-  const c = bgCtx, dark = isDark(), t = time * sc.speed * .5 + sc.phase;
-  const hsla = (i, a, l) => `hsla(${sc.hues[((i % 4) + 4) % 4]},${sc.sat}%,${l}%,${a})`;
-  const cx = bgW / 2, cy = bgH / 2, diag = Math.hypot(bgW, bgH);
-
-  // 1. translucent morphing blobs
-  c.save();
-  c.globalCompositeOperation = dark ? 'lighter' : 'source-over';
-  sc.blobs.forEach((b, i) => {
-    const x = bgW * (.5 + b.ax * Math.sin(t * b.fx + b.px)), y = bgH * (.5 + b.ay * Math.cos(t * b.fy + b.py));
-    const R = Math.min(bgW, bgH) * b.r * (1 + .12 * Math.sin(t * b.fr + b.pr)) * 1.1;
-    const a = b.a * mul * (dark ? .8 : 1), l = dark ? 66 : 62;
-    const g = c.createRadialGradient(x, y, 0, x, y, R * 1.15);
-    g.addColorStop(0, hsla(i, a, l)); g.addColorStop(.55, hsla(i, a * .5, l)); g.addColorStop(1, hsla(i, 0, l));
-    c.fillStyle = g;
-    c.beginPath();
-    for (let k = 0; k <= 72; k++) {
-      const th = k / 72 * TAU;
-      const rr = R * (1 + b.amp * Math.sin(b.lobes * th + t * b.sp + b.ph) + b.amp * .5 * Math.sin((b.lobes + 2) * th - t * b.sp * .7));
-      const px = x + Math.cos(th + b.rot * t) * rr, py = y + Math.sin(th + b.rot * t) * rr;
-      if (k) c.lineTo(px, py); else c.moveTo(px, py);
+// Maple leaf with a two-tone center and palmate veins (o.veins limits to the middle n)
+function mapleSet(cx, cy, size, rot, lobes, span, depth, o) {
+  const out = [{ d: maple(cx, cy, size, rot, lobes, span, depth), f: o.f }];
+  if (o.inner) out.push({ d: maple(cx, cy, size * 0.6, rot, lobes, span, depth), f: o.inner });
+  if (o.vein) {
+    const vw = Math.max(0.7, size * 0.022), mid = (lobes - 1) / 2, lim = o.veins ? (o.veins - 1) / 2 : 99;
+    for (let j = 0; j < lobes; j++) {
+      if (Math.abs(j - mid) > lim) continue;
+      const u = (j + 0.5) / lobes, ang = rot - span / 2 + span * u;
+      const rr = (1 - depth) + depth * (0.7 + 0.3 * Math.sin(Math.PI * u));
+      const len = size * rr * 0.8;
+      out.push({ d: stem(cx, cy, ang, len, 0, vw, 0.25), f: o.vein });
+      if (o.sideVeins) {
+        const p = spinePt(cx, cy, ang, len, 0, 0.5);
+        [1, -1].forEach(sg => out.push({ d: stem(p[0], p[1], ang + sg * 38, size * 0.24, 0, vw * 0.6, 0.2), f: o.vein }));
+      }
     }
-    c.closePath(); c.fill();
+  }
+  return out;
+}
+function samara(x, y, ang, len, w, f, seed) {
+  const s = spinePt(x, y, ang, len, 0, 0.12);
+  return [{ d: leaf(x, y, ang, len, w), f }, { d: ell(s[0], s[1], w * 0.3, w * 0.42, ang), f: seed }];
+}
+
+/* =========================================================
+   Plants, in timeline order (December first).
+   build(colors) returns [{ d, f }] from back to front.
+   ========================================================= */
+CONFIG.plants = [
+  {
+    slug: "douglas-fir", name: "Douglas fir", latin: "Pseudotsuga menziesii", season: "winter",
+    fact: "Oregon's state tree. Its cones have forked bracts that look like tiny mouse tails.",
+    look: "Evergreen all year. Cones ripen in late summer and fall.",
+    habitat: "Lowland and mountain forests throughout western Oregon.",
+    where: "Forest Park, Hoyt Arboretum, and the slopes of Mt. Tabor.",
+    build: c => {
+      const p = [shadow(118)];
+      p.push({ d: poly([[193, G + 2], [207, G + 2], [205, 282], [195, 282]]), f: c.bark });
+      p.push({ d: poly([[200, G + 2], [207, G + 2], [205, 282], [200, 282]]), f: c.barkDk });
+      const tiers = [[205, 302, 128], [168, 258, 106], [132, 214, 84], [98, 170, 62], [66, 126, 40]];
+      tiers.forEach(([t, b, h], i) => {
+        p.push({ d: poly([[200, t], [200 + h, b], [200 + h * 0.5, b - 9], [200, b + 3], [200 - h * 0.5, b - 9], [200 - h, b]]), f: i % 2 ? c.moss : c.deep });
+        p.push({ d: poly([[200, t], [200 + h, b], [200 + h * 0.5, b - 9], [200, b + 3]]), f: i % 2 ? c.deep : c.shade });
+        const y = t + (b - t) * 0.62;
+        p.push({ d: poly([[200 - h * 0.62, y + 4], [200 - h * 0.3, y - 2], [200 - h * 0.12, y + 6], [200 - h * 0.34, y + 3]]), f: c.mossLt });
+      });
+      [[0, 1], [1, -1], [2, 1]].forEach(([ti, side]) => {
+        const [t, b, h] = tiers[ti];
+        const E = s => [200 + side * h * s, t + (b - t) * s];
+        const a = E(0.6), z = E(0.93), m1 = E(0.84), m2 = E(0.7);
+        p.push({ d: poly([a, z, [m1[0], m1[1] + 5], [m2[0], m2[1] + 7]]), f: c.snow });
+      });
+      p.push({ d: poly([[200, 66], [214, 87], [207, 84], [200, 90], [193, 84], [186, 87]]), f: c.snow });
+      [[150, 266], [252, 226], [228, 306]].forEach(([x, y]) => {
+        p.push({ d: ell(x, y, 6.5, 10.5), f: c.barkDk });
+        p.push({ d: ell(x - 1.2, y - 1, 3.2, 7), f: c.bark });
+      });
+      return p;
+    }
+  },
+  {
+    slug: "sword-fern", name: "Western sword fern", latin: "Polystichum munitum", season: "winter",
+    fact: "Stays green all winter. Each leaflet has a tiny lobe at its base, like the hilt of a sword.",
+    look: "Evergreen all year. New fiddleheads unfurl in spring.",
+    habitat: "Shady, moist forest floors and ravines.",
+    where: "Forest Park, Tryon Creek State Natural Area, and Leach Botanical Garden.",
+    build: c => {
+      const fr = [], n = 11;
+      for (let i = 0; i < n; i++) {
+        const a = -74 + 148 * i / (n - 1);
+        const len = 150 + 62 * Math.cos(rad(a));
+        const bend = a === 0 ? 18 : Math.sign(a) * len * 0.24;
+        const bx = 200 + a * 0.15, by = G - 4;
+        const sp = t => spinePt(bx, by, a, len, bend, t);
+        // pinnae: each tooth is broad, with a small raised "hilt" on the upper side
+        fr.push({
+          a,
+          frond: { d: ribbon2(sp,
+            (t, j) => 18 * Math.pow(1 - t, 0.6) * Math.min(1, t * 5) * (j % 2 ? 1 : 0.3),
+            (t, j) => 18 * Math.pow(1 - t, 0.6) * Math.min(1, t * 5) * (j % 2 ? 0.92 : 0.36), 34),
+            f: i % 3 === 1 ? c.mossLt : i % 2 ? c.moss : c.deep },
+          rib: { d: ribbon(t => sp(t * 0.94), t => 1.4 * (1 - 0.8 * t), 20), f: c.vein }
+        });
+      }
+      fr.sort((x, y) => Math.abs(y.a) - Math.abs(x.a));
+      return [shadow(112), { d: ell(200, G, 34, 9), f: c.deep }, ...fr.flatMap(f => [f.frond, f.rib])];
+    }
+  },
+  {
+    slug: "snowberry", name: "Snowberry", latin: "Symphoricarpos albus", season: "winter",
+    fact: "Its white berries hang on well into winter, long after the leaves drop.",
+    look: "Small pink flowers in late spring. White berries from late summer into winter.",
+    habitat: "Open woods, thickets, and stream banks.",
+    where: "Oaks Bottom Wildlife Refuge, Powell Butte Nature Park, and many native plantings around town.",
+    build: c => {
+      const p = [shadow(90)], stems = [[196, -34, 170, -70], [204, 12, 190, 64], [206, 44, 140, 58]];
+      stems.forEach(([x, a, l, b]) => p.push({ d: stem(x, G, a, l, b, 3.2, 1.6), f: c.bark }));
+      // snowberry leaves grow in opposite pairs
+      stems.forEach(([x, a, l, b]) => [0.42, 0.7].forEach((t, k) => {
+        const pt = spinePt(x, G, a, l, b, t), ta = tangentAt(x, G, a, l, b, t);
+        [58, -58].forEach(off => p.push(...leafSet(pt[0], pt[1], ta + off, 30, 21, 0,
+          { f: k ? c.sage : c.moss, shade: k ? c.sageDk : c.deep })));
+      }));
+      stems.forEach(([x, a, l, b]) => {
+        const tip = spinePt(x, G, a, l, b, 1);
+        [[0, 8, 11], [-10, 18, 9], [9, 20, 9.5]].forEach(([dx, dy, r]) => {
+          p.push({ d: circ(tip[0] + dx, tip[1] + dy, r), f: c.fog });
+          p.push({ d: circ(tip[0] + dx - r * 0.14, tip[1] + dy - r * 0.16, r * 0.8), f: c.snow });
+        });
+      });
+      return p;
+    }
+  },
+  {
+    slug: "red-flowering-currant", name: "Red-flowering currant", latin: "Ribes sanguineum", season: "spring",
+    fact: "Its pink blossoms open just as rufous hummingbirds arrive back from the south.",
+    look: "Blooms in March and April. Blue-black berries follow in summer.",
+    habitat: "Forest edges, clearings, and open woods.",
+    where: "Leach Botanical Garden, Hoyt Arboretum, and Tryon Creek State Natural Area.",
+    build: c => {
+      const p = [shadow(118, 194)];
+      const A = [168, G, -14, 250, -64], B = [186, G, 20, 262, 62];
+      [A, B].forEach(b => {
+        p.push({ d: stem(...b, 5.2, 2), f: c.bark });
+        p.push({ d: stemShade(...b, 5.2, 2), f: c.barkDk });
+      });
+      const ta = spinePt(...A, 0.55), tb = spinePt(...B, 0.5);
+      const TA = [ta[0], ta[1], tangentAt(...A, 0.55) + 50, 90, 18];
+      const TB = [tb[0], tb[1], tangentAt(...B, 0.5) - 52, 96, -18];
+      [TA, TB].forEach(t => p.push({ d: stem(...t, 2.6, 1.2), f: c.bark }));
+      const leafAt = (b, t, dx, dy, s, r, f, inner) => {
+        const q = spinePt(...b, t);
+        p.push(...mapleSet(q[0] + dx, q[1] + dy, s, r, 5, 300, 0.3, { f, inner, vein: c.vein, veins: 1 }));
+      };
+      leafAt(A, 0.25, -22, -6, 26, -60, c.leaf, c.leafDk);
+      leafAt(A, 0.8, 16, -18, 24, 20, c.fresh, c.freshDk);
+      leafAt(B, 0.3, 22, -4, 27, 55, c.fresh, c.freshDk);
+      leafAt(B, 0.75, -18, -16, 24, -15, c.leaf, c.leafDk);
+      leafAt(TA, 0.6, 0, -18, 22, 0, c.fresh, c.freshDk);
+      leafAt(TB, 0.6, 0, -18, 22, 10, c.leaf, c.leafDk);
+      // drooping clusters of tubular flowers, each with a flared pale face
+      const raceme = (pt, sign) => {
+        const S = [pt[0], pt[1], 180 + sign * 12, 78, -sign * 12];
+        p.push({ d: stem(...S, 1.8, 1), f: c.pinkDk });
+        [0.2, 0.42, 0.64, 0.86].forEach((t, k) => {
+          const q = spinePt(...S, t), side = k % 2 ? 1 : -1, a = 180 + side * 46, sc = 1.5 - k * 0.12;
+          const mid = spinePt(q[0], q[1], a, 7.5 * sc, 0, 1), tip = spinePt(q[0], q[1], a, 15 * sc, 0, 1);
+          p.push({ d: ell(mid[0], mid[1], 4.4 * sc, 8.5 * sc, a), f: k % 2 ? c.pinkDk : c.pink });
+          p.push({ d: flower(tip[0], tip[1], 5, 6 * sc, 1.8, 0.8, a), f: c.blushLt });
+        });
+      };
+      raceme(spinePt(...A, 1), -1);
+      raceme(spinePt(...B, 1), 1);
+      raceme(spinePt(...TA, 1), 1);
+      raceme(spinePt(...TB, 1), -1);
+      raceme(spinePt(...B, 0.72), 1);
+      return p;
+    }
+  },
+  {
+    slug: "western-trillium", name: "Western trillium", latin: "Trillium ovatum", season: "spring",
+    fact: "Its white petals slowly blush pink as they age, and ants help spread its seeds.",
+    look: "Blooms from March into April, often before the trees leaf out.",
+    habitat: "Moist, shady forests with rich soil.",
+    where: "Tryon Creek State Natural Area, known for its spring Trillium Festival, and Forest Park.",
+    build: c => [
+      shadow(88),
+      { d: stem(200, G, 0, 97, 0, 4, 3), f: c.leafDk },
+      ...leafSet(200, 236, -112, 100, 76, 8, { f: c.leaf, shade: c.leafDk, vein: c.vein, side: 2 }),
+      ...leafSet(200, 236, 112, 100, 76, -8, { f: c.fresh, shade: c.freshDk, vein: c.vein, side: 2 }),
+      ...leafSet(200, 236, 180, 70, 56, 0, { f: c.leaf, shade: c.leafDk, vein: c.vein, side: 2 }),
+      { d: stem(200, 236, 0, 46, 0, 2.6, 2.2), f: c.leaf },
+      ...[60, 180, 300].map(a => ({ d: leaf(200, 190, a, 44, 13), f: c.fresh })),
+      ...[0, 120, 240].flatMap(a => leafSet(200, 190, a, 64, 46, 0, { f: c.white, shade: c.petalShade, vein: c.petalShade, veinW: 1 })),
+      { d: circ(200, 190, 7.5), f: c.pollen },
+      ...[30, 150, 270].map(a => { const q = spinePt(200, 190, a, 10, 0, 1); return { d: circ(q[0], q[1], 2.2), f: c.pollen }; })
+    ]
+  },
+  {
+    slug: "common-camas", name: "Common camas", latin: "Camassia quamash", season: "spring",
+    fact: "Camas bulbs were a vital staple food for Indigenous peoples across the Northwest.",
+    look: "Blooms in April and May, turning wet meadows blue.",
+    habitat: "Wet meadows and prairies that dry out by summer.",
+    where: "Camassia Nature Preserve in West Linn, just south of Portland.",
+    build: c => {
+      const p = [shadow(72)];
+      [[186, -24, 150, 13, -30, c.fresh, c.freshDk], [214, 20, 165, 12, 30, c.leaf, c.leafDk], [226, 36, 120, 11, 24, c.fresh, c.freshDk]]
+        .forEach(([x, a, l, w, b, f, s]) => p.push(...leafSet(x, G, a, l, w, b, { f, shade: s })));
+      const S = [[168, -6, 215, -14], [206, 2, 245, 10], [242, 9, 195, 16]];
+      S.forEach(([x, a, l, b]) => p.push({ d: stem(x, G, a, l, b, 2.6, 1.8), f: c.leaf }));
+      S.forEach(([x, a, l, b]) => {
+        const tip = spinePt(x, G, a, l, b, 1), ta = tangentAt(x, G, a, l, b, 1);
+        const bud = spinePt(tip[0], tip[1], ta, 16, 0, 1);
+        p.push({ d: ell(bud[0], bud[1], 4, 8, ta), f: c.lavender });
+      });
+      // flowers open from the bottom of the spike upward
+      S.forEach(([x, a, l, b], si) => [0.74, 0.87, 1].forEach((t, k) => {
+        const pt = spinePt(x, G, a, l, b, t), R = [21, 18, 14][k], rot = si * 20 + k * 30;
+        p.push({ d: flower(pt[0], pt[1], 6, R, 3.2, 1.9, rot), f: (si + k) % 2 ? c.lavender : c.camas });
+        p.push({ d: flower(pt[0], pt[1], 6, R * 0.55, 2.2, 1.9, rot), f: c.camasDk });
+        p.push({ d: circ(pt[0], pt[1], 2.4), f: c.pollen });
+      }));
+      return p;
+    }
+  },
+  {
+    slug: "oregon-sunshine", name: "Oregon sunshine", latin: "Eriophyllum lanatum", season: "summer",
+    fact: "Woolly gray leaves help it shrug off the dry heat of a Portland summer.",
+    look: "Blooms from May into July.",
+    habitat: "Dry, rocky slopes and open grassy areas.",
+    where: "Columbia River Gorge viewpoints and native plant gardens around the city.",
+    build: c => {
+      const p = [shadow(84)], F = [[138, 190, 26], [182, 146, 30], [232, 160, 28], [270, 212, 24], [198, 220, 22]];
+      [-62, -30, 0, 30, 62].forEach(a => p.push(...leafSet(200, G, a, 72, 16, 0, { f: c.sage, shade: c.sageLt })));
+      F.forEach(([fx, fy]) => {
+        const bx = 200 + (fx - 200) * 0.2, dx = fx - bx, dy = fy - G;
+        const a = Math.atan2(dx, -dy) * 180 / Math.PI;
+        p.push({ d: stem(bx, G, a, Math.hypot(dx, dy), 0, 2.4, 1.6), f: c.green });
+      });
+      F.forEach(([fx, fy, R], i) => {
+        p.push({ d: flower(fx, fy, 11, R, R * 0.32, 0.55, i * 13), f: c.gold });
+        p.push({ d: flower(fx, fy, 11, R * 0.62, R * 0.3, 0.55, i * 13 + 16), f: c.goldDk });
+        p.push({ d: circ(fx, fy, R * 0.3), f: c.amber });
+        p.push({ d: circ(fx - R * 0.08, fy - R * 0.08, R * 0.14), f: c.goldLt });
+      });
+      return p;
+    }
+  },
+  {
+    slug: "salal", name: "Salal", latin: "Gaultheria shallon", season: "summer",
+    fact: "Its leathery evergreen leaves are harvested for florists' bouquets around the world.",
+    look: "Pink bell flowers in early summer. Dark purple berries by August.",
+    habitat: "Forest understory, often forming dense thickets.",
+    where: "Forest Park and Hoyt Arboretum.",
+    build: c => {
+      const p = [shadow(118)], S = [[190, -28, 175, -52], [210, 22, 195, 60]];
+      S.forEach(([x, a, l, b]) => p.push({ d: stem(x, G, a, l, b, 3, 1.5), f: c.bark }));
+      S.forEach(([x, a, l, b]) => [0.28, 0.52, 0.76, 0.98].forEach((t, k) => {
+        const pt = spinePt(x, G, a, l, b, t), ta = tangentAt(x, G, a, l, b, t);
+        p.push(...leafSet(pt[0], pt[1], ta + (k % 2 ? 72 : -72), 58, 38, 0,
+          { f: k % 2 ? c.green : c.deep, shade: k % 2 ? c.greenDk : c.deepDk, vein: c.vein, side: 1 }));
+      }));
+      const t2 = spinePt(S[1][0], G, S[1][1], S[1][2], S[1][3], 1);
+      for (let j = 0; j < 5; j++) {
+        const x = t2[0] + j * 3, y = t2[1] + 14 + j * 15;
+        p.push({ d: ell(x, y, 6.5, 8.5), f: c.urn });
+        p.push({ d: ell(x + 1.6, y + 1, 3.4, 6.5), f: c.urnDk });
+      }
+      const t1 = spinePt(S[0][0], G, S[0][1], S[0][2], S[0][3], 1);
+      [[0, 12], [-10, 22], [8, 24]].forEach(([dx, dy]) => p.push({ d: circ(t1[0] + dx, t1[1] + dy, 8), f: c.dark }));
+      return p;
+    }
+  },
+  {
+    slug: "oregon-grape", name: "Oregon grape", latin: "Mahonia aquifolium", season: "summer",
+    fact: "Oregon's state flower. Its tart, dusty-blue berries ripen in late summer.",
+    look: "Yellow flowers in spring. Blue berries ripen from July into September.",
+    habitat: "Forest edges, open woods, and dry slopes.",
+    where: "Forest Park, city parks, and plenty of Portland front yards.",
+    build: c => {
+      const p = [shadow(104)], P = [[196, -38, 150, -20], [204, 34, 138, 18]];
+      P.forEach(([x, a, l, b]) => p.push({ d: stem(x, G, a, l, b, 2.6, 1.6), f: c.deep }));
+      P.forEach(([x, a, l, b]) => {
+        [0.38, 0.68].forEach(t => {
+          const pt = spinePt(x, G, a, l, b, t), ta = tangentAt(x, G, a, l, b, t);
+          p.push(...hollySet(pt[0], pt[1], ta - 58, 46, 28, c.deep, c.deepDk, c.vein));
+          p.push(...hollySet(pt[0], pt[1], ta + 58, 46, 28, c.green, c.greenDk, c.vein));
+        });
+        const tip = spinePt(x, G, a, l, b, 1);
+        p.push(...hollySet(tip[0], tip[1], tangentAt(x, G, a, l, b, 1), 50, 30, c.green, c.greenDk, c.vein));
+      });
+      p.push({ d: stem(200, G, 4, 165, 6, 2.4, 1.6), f: c.bark });
+      const top = spinePt(200, G, 4, 165, 6, 1);
+      [[0, 8], [-11, 16], [11, 17], [-4, 26], [8, 31], [-13, 32], [2, 41], [-6, 50]].forEach(([dx, dy], k) => {
+        const r = 9 - k * 0.25;
+        p.push({ d: circ(top[0] + dx, top[1] + dy, r), f: k % 3 === 1 ? c.berryLt : c.berry });
+        p.push({ d: circ(top[0] + dx - r * 0.35, top[1] + dy - r * 0.35, r * 0.32), f: c.bloom });
+      });
+      return p;
+    }
+  },
+  {
+    slug: "oregon-white-oak", name: "Oregon white oak", latin: "Quercus garryana", season: "fall",
+    fact: "Also called Garry oak. Its savannas once covered much of the Willamette Valley, and little of that habitat remains.",
+    look: "Acorns ripen and drop in September and October.",
+    habitat: "Oak savannas and dry, sunny valley slopes.",
+    where: "Oaks Bottom Wildlife Refuge and Oak Island on Sauvie Island.",
+    build: c => {
+      const p = [shadow(96)];
+      const B = [200, G, 6, 205, 34];
+      p.push({ d: stem(...B, 5, 2.2), f: c.bark });
+      p.push({ d: stemShade(...B, 5, 2.2), f: c.barkDk });
+      const sp = spinePt(...B, 0.42), T = [sp[0], sp[1], tangentAt(...B, 0.42) - 58, 100, -16];
+      p.push({ d: stem(...T, 2.8, 1.3), f: c.bark });
+      const oak = (x, y, a, len, w, f, shade) =>
+        p.push(...leafSet(x, y, a, len, w, 0, { f, shade, vein: c.oliveVein, side: 2, sideAt: [1 / 7, 3 / 7] }, oakW(w), 42));
+      const at = (b, t) => [spinePt(...b, t), tangentAt(...b, t)];
+      let [q, ta] = at(B, 0.3); oak(q[0], q[1], ta + 62, 78, 46, c.olive, c.oliveDk);
+      [q, ta] = at(B, 0.6); oak(q[0], q[1], ta + 58, 84, 50, c.oliveDk, c.olive);
+      [q, ta] = at(B, 1); oak(q[0], q[1], ta - 8, 88, 52, c.olive, c.oliveDk);
+      [q, ta] = at(T, 0.55); oak(q[0], q[1], ta - 60, 72, 44, c.olive, c.oliveDk);
+      [q, ta] = at(T, 1); oak(q[0], q[1], ta + 6, 80, 48, c.oliveDk, c.olive);
+      const acorn = (x, y, tilt) => {
+        const nut = spinePt(x, y, 180 + tilt, 11, 0, 1), tip = spinePt(x, y, 180 + tilt, 23, 0, 1);
+        p.push({ d: ell(nut[0], nut[1], 8.6, 12.5, tilt), f: c.acorn });
+        p.push({ d: ell(nut[0] + 2.2, nut[1] + 1.5, 4.2, 10.5, tilt), f: c.acornDk });
+        p.push({ d: ell(x, y + 1, 10.2, 7, tilt), f: c.cap });
+        p.push({ d: circ(tip[0], tip[1], 2), f: c.capDk });
+      };
+      const a1 = spinePt(...B, 0.74), a2 = spinePt(...T, 0.8);
+      acorn(a1[0] + 10, a1[1] + 6, -10);
+      acorn(a1[0] + 22, a1[1] + 4, 16);
+      acorn(a2[0] - 2, a2[1] + 10, 6);
+      acorn(274, G - 10, 78); // one fallen on the ground
+      return p;
+    }
+  },
+  {
+    slug: "vine-maple", name: "Vine maple", latin: "Acer circinatum", season: "fall",
+    fact: "In shade it turns buttery yellow. In full sun it blazes orange and red.",
+    look: "Leaves color up in October.",
+    habitat: "Forest understory and stream banks.",
+    where: "Forest Park, Hoyt Arboretum, and Tryon Creek State Natural Area.",
+    build: c => {
+      const p = [shadow(110, 190)], B = [118, G, 24, 245, 52];
+      p.push({ d: stem(...B, 6, 2), f: c.bark });
+      p.push({ d: stemShade(...B, 6, 2), f: c.barkDk });
+      const a1 = spinePt(...B, 0.46), a2 = spinePt(...B, 0.72);
+      const T1 = [a1[0], a1[1], tangentAt(...B, 0.46) - 62, 118, -22];
+      const T2 = [a2[0], a2[1], tangentAt(...B, 0.72) + 48, 70, 10];
+      p.push({ d: stem(...T1, 3, 1.4), f: c.bark });
+      p.push({ d: stem(...T2, 2.6, 1.2), f: c.bark });
+      const bt = spinePt(...B, 1), t1 = spinePt(...T1, 1), t2 = spinePt(...T2, 1);
+      const b3 = spinePt(...B, 0.3), m1 = spinePt(...T1, 0.55);
+      const L = (x, y, s, r, f, inner) => p.push(...mapleSet(x, y, s, r, 7, 320, 0.55, { f, inner, vein: c.vein, veins: 3 }));
+      L(b3[0] - 30, b3[1] - 6, 34, -60, c.gold, c.goldDk);
+      L(m1[0] + 16, m1[1] - 22, 32, 10, c.amber, c.amberDk);
+      L(t1[0], t1[1] - 20, 44, -25, c.rust, c.rustDk);
+      L(t2[0] + 18, t2[1] - 10, 38, 70, c.amber, c.rust);
+      L(bt[0], bt[1] - 26, 50, 20, c.crimson, c.crimsonDk);
+      const s1 = spinePt(...B, 0.86), s2 = spinePt(...T2, 0.5);
+      p.push(...samara(s1[0], s1[1], 125, 34, 13, c.tan, c.tanDk));
+      p.push(...samara(s1[0], s1[1], 235, 34, 13, c.tan, c.tanDk));
+      p.push(...samara(s2[0], s2[1], 140, 30, 12, c.tan, c.tanDk));
+      p.push(...samara(s2[0], s2[1], 220, 30, 12, c.tan, c.tanDk));
+      return p;
+    }
+  },
+  {
+    slug: "bigleaf-maple", name: "Bigleaf maple", latin: "Acer macrophyllum", season: "fall",
+    fact: "It has the largest leaves of any maple, often wider than a dinner plate.",
+    look: "Leaves turn gold in October and November.",
+    habitat: "Moist valleys and stream banks, and throughout the city.",
+    where: "Laurelhurst Park, Mt. Tabor, and Forest Park.",
+    build: c => [
+      shadow(74),
+      { d: stem(200, G, 0, 118, 0, 3.2, 2.4), f: c.bark },
+      ...mapleSet(200, 206, 118, 0, 5, 290, 0.46, { f: c.gold, inner: c.goldDk, vein: c.vein, sideVeins: true }),
+      ...mapleSet(300, G - 5, 22, 100, 5, 290, 0.46, { f: c.rust, inner: c.rustDk }),
+      ...samara(112, G - 4, 255, 36, 14, c.tan, c.tanDk),
+      ...samara(112, G - 4, 288, 36, 14, c.tan, c.tanDk)
+    ]
+  }
+];
+
+/* =========================================================
+   Engine
+   ========================================================= */
+const SLOTS = CONFIG.slots;
+const PLANTS = CONFIG.plants;
+const SEASON_KEYS = ["winter", "spring", "summer", "fall"];
+const $ = id => document.getElementById(id);
+const root = document.documentElement;
+const svgNS = "http://www.w3.org/2000/svg";
+const plantG = $("plant"), stage = $("stage");
+const reduceMQ = matchMedia("(prefers-reduced-motion: reduce)");
+const EMBED = /[?&]embed(=|&|$)/.test(location.search);
+if (EMBED) document.body.classList.add("embed");
+
+
+const parsePts = d => d.slice(1, -1).split("L").map(s => s.split(",").map(Number));
+function describe(s, z) {
+  const pts = parsePts(s.d);
+  let cx = 0, cy = 0, x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  pts.forEach(([x, y]) => { cx += x; cy += y; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); });
+  cx /= pts.length; cy /= pts.length;
+  let sxx = 0, syy = 0, sxy = 0;
+  pts.forEach(([x, y]) => { sxx += (x - cx) ** 2; syy += (y - cy) ** 2; sxy += (x - cx) * (y - cy); });
+  const ang = 0.5 * Math.atan2(2 * sxy, sxx - syy) * 180 / Math.PI; // long axis vs. x axis
+  return { d: s.d, f: s.f, pts, cx, cy, size: Math.max(2, Math.sqrt((x1 - x0) * (y1 - y0))), ang, z };
+}
+// Soft, bud-like ellipse used as the middle of every morph
+const budD = (cx, cy, size, ang) => ell(cx, cy, Math.max(1.4, size * 0.34), Math.max(1, size * 0.2), ang);
+
+const shapeCache = PLANTS.map(pl => {
+  const parts = pl.build(CONFIG.seasons[pl.season].c);
+  if (parts.length > SLOTS) console.warn(`${pl.name} has ${parts.length} parts; raise CONFIG.slots`);
+  return parts.slice(0, SLOTS).map(describe);
+});
+
+const slots = [];
+for (let i = 0; i < SLOTS; i++) {
+  const el = document.createElementNS(svgNS, "path");
+  const d = budD(200, G - 4, 1, 0);
+  el.setAttribute("d", d);
+  el.style.opacity = 0;
+  plantG.appendChild(el);
+  slots.push({ el, vis: false, pts: parsePts(d), cx: 200, cy: G - 4, size: 0, ang: 0, z: -1, fill: null, op: 0, item: null });
+}
+
+const isDark = () => false; // light theme only
+
+/* ---------- Sky & landscape ---------- */
+const clouds = [...document.querySelectorAll("#clouds .cloud")];
+function applySeason(key, dur) {
+  const s = CONFIG.seasons[key], d = isDark();
+  const pick = n => d ? s[n + "Dark"] : s[n];
+  const o = { duration: dur, ease: "sine.inOut", overwrite: "auto" };
+  root.style.setProperty("--accent", s.accent);
+  gsap.to(root, { "--bg": pick("bg"), ...o });
+  gsap.to($("skyTop"), { attr: { "stop-color": pick("skyTop") }, ...o });
+  gsap.to($("skyBottom"), { attr: { "stop-color": pick("skyBottom") }, ...o });
+  gsap.to($("sun"), { fill: pick("sun"), ...o });
+  gsap.to($("mountain"), { fill: pick("mountain"), ...o });
+  gsap.to($("snowcap"), { fill: d ? "#C9D3DD" : "#FFFFFF", ...o });
+  gsap.to($("farHill"), { fill: pick("farHill"), ...o });
+  gsap.to($("hill"), { fill: pick("hill"), ...o });
+  clouds.forEach((cl, i) => gsap.to(cl, { fill: pick("cloud"), opacity: s.clouds[i], ...o }));
+}
+
+/* ---------- Mt. Hood snowpack ---------- */
+const HOOD_L = [[120, 210], [114, 214], [104, 226], [92, 238], [24, 312]];
+const HOOD_R = [[120, 210], [128, 216], [140, 230], [160, 252], [218, 312]];
+const ZIG = [0, 5, -3, 8, 1, 10, -2, 7, 3, 6, 0];
+const snowState = { L: 0.5 };
+function edgeX(line, y) {
+  for (let k = 0; k < line.length - 1; k++) {
+    const [x0, y0] = line[k], [x1, y1] = line[k + 1];
+    if (y >= y0 && y <= y1) return x0 + (x1 - x0) * (y - y0) / (y1 - y0);
+  }
+  return line[line.length - 1][0];
+}
+function drawSnow() {
+  const L = snowState.L, ys = 222 + L * 62;
+  const xl = edgeX(HOOD_L, ys), xr = edgeX(HOOD_R, ys);
+  const pts = [[xl, ys]];
+  HOOD_L.slice().reverse().forEach(p => { if (p[1] < ys) pts.push(p); });
+  HOOD_R.slice(1).forEach(p => { if (p[1] < ys) pts.push(p); });
+  pts.push([xr, ys]);
+  for (let k = ZIG.length - 2; k >= 1; k--) {
+    const x = xl + (xr - xl) * k / (ZIG.length - 1);
+    pts.push([x, ys + ZIG[k] * (0.45 + L * 0.8)]);
+  }
+  $("snowcap").setAttribute("d", poly(pts));
+}
+function setHoodSnow(i, dur) {
+  gsap.to(snowState, { L: CONFIG.hoodSnow[i], duration: dur, ease: "sine.inOut", overwrite: true, onUpdate: drawSnow, onComplete: drawSnow });
+  if (!dur) drawSnow();
+}
+
+/* ---------- Clouds drift west to east, slowly changing shape ---------- */
+const cloudState = clouds.map((el, i) => {
+  const ells = [...el.querySelectorAll("ellipse")].map(e => ({ e, rx: +e.getAttribute("rx"), ry: +e.getAttribute("ry") }));
+  const xs = ells.map(o => +o.e.getAttribute("cx"));
+  const minX = Math.min(...xs.map((x, k) => x - ells[k].rx)), maxX = Math.max(...xs.map((x, k) => x + ells[k].rx));
+  return { el, ells, minX, maxX, off: [30, -60, 110][i] || 0, speed: [2.6, 3.8, 1.8][i] || 2.5, seed: i * 2.1 };
+});
+let cloudT = 0;
+function cloudStep(dt) {
+  if (reduceMQ.matches || frozen) return;
+  const sec = dt * 0.0167;
+  cloudT += sec;
+  cloudState.forEach(c => {
+    c.off += c.speed * sec;
+    if (c.minX + c.off > 410) c.off = -12 - c.maxX; // re-enter from the west, off-stage
+    c.el.setAttribute("transform", `translate(${c.off.toFixed(2)} 0)`);
+    c.ells.forEach((o, k) => {
+      const ph = cloudT * 0.09 + k * 1.7 + c.seed;
+      o.e.setAttribute("rx", (o.rx * (1 + 0.07 * Math.sin(ph))).toFixed(2));
+      o.e.setAttribute("ry", (o.ry * (1 + 0.09 * Math.sin(ph * 1.3 + 0.8))).toFixed(2));
+    });
   });
-  c.restore();
+}
 
-  // 2. subtle psychedelic line pattern
-  const alpha = (dark ? .15 : .18) * mul, ll = dark ? 76 : 42;
-  const ln = (i, a) => hsla(i, a, ll);
-  c.save();
-  c.lineWidth = 1.1; c.lineJoin = 'round';
-  const trace = (pts, close) => { pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); if (close) c.closePath(); };
-  if (sc.pattern === 'contours') {
-    const step = sc.s * 1.15, maxR = diag * .62, maxN = Math.ceil(maxR / step), off = ((t * 5) % step + step) % step;
-    [[cx + Math.sin(t * .21) * bgW * .28, cy + Math.cos(t * .17) * bgH * .24], [cx + Math.cos(t * .15 + 1) * bgW * .3, cy + Math.sin(t * .19 + 2) * bgH * .28]].forEach(([x0, y0], ci) => {
-      for (let n = 0; n < maxN; n++) {
-        const r = n * step + off, al = alpha * (1 - r / maxR);
-        if (al <= .004) continue;
-        c.strokeStyle = ln(n + ci, al); c.beginPath();
-        for (let k = 0; k <= 72; k++) {
-          const th = k / 72 * TAU, rr = r * (1 + .05 * Math.sin(sc.k * th + t * .7 + n * .3 + ci * 2) + .03 * Math.sin((sc.k + 3) * th - t * .5));
-          const x = x0 + Math.cos(th) * rr, y = y0 + Math.sin(th) * rr;
-          if (k) c.lineTo(x, y); else c.moveTo(x, y);
+/* ---------- Timeline UI ---------- */
+const range = $("tlRange"), tlSeasons = $("tlSeasons"), tlMonths = $("tlMonths");
+const seasonBtns = {}, monthBtns = [];
+SEASON_KEYS.forEach(k => {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "tl-season"; b.textContent = CONFIG.seasons[k].label;
+  b.addEventListener("click", () => goTo(PLANTS.findIndex(p => p.season === k)));
+  tlSeasons.appendChild(b); seasonBtns[k] = b;
+});
+CONFIG.months.forEach((m, i) => {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "tl-month"; b.tabIndex = -1;
+  b.innerHTML = `<span class="l">${m.slice(0, 3)}</span><span class="s">${m[0]}</span>`;
+  b.addEventListener("click", () => goTo(i));
+  tlMonths.appendChild(b); monthBtns.push(b);
+});
+const tlWrap = $("tlWrap"), tlThumb = $("tlThumb"), tlTip = $("tlTip"), dots = [];
+for (let i = 0; i < 12; i++) {
+  const d = document.createElement("span");
+  d.className = "tl-dot";
+  $("tlDots").appendChild(d); dots.push(d);
+}
+const pctOf = i => ((i + 0.5) / 12 * 100) + "%";
+let thumbAt = null, tipTimer = null, dragTimer = null;
+
+function moveThumb(i, dur) {
+  const from = thumbAt;
+  thumbAt = i;
+  gsap.killTweensOf(tlThumb);
+  if (from === null || dur === 0) { gsap.set(tlThumb, { left: pctOf(i), scale: 1, opacity: 1 }); return; }
+  if (Math.abs(i - from) > 6 && dur > 0.3) {
+    // wrapping around the year: fade out at one end, grow back at the other
+    gsap.timeline()
+      .to(tlThumb, { scale: 0.3, opacity: 0, duration: 0.25, ease: "power2.in" })
+      .set(tlThumb, { left: pctOf(i) })
+      .to(tlThumb, { scale: 1, opacity: 1, duration: 0.45, ease: "back.out(2)" });
+  } else {
+    gsap.to(tlThumb, { left: pctOf(i), scale: 1, opacity: 1, duration: dur, ease: "power3.inOut" });
+  }
+}
+function markMonth(i) {
+  monthBtns.forEach((b, k) => b.setAttribute("aria-current", String(k === i)));
+  SEASON_KEYS.forEach(k => seasonBtns[k].setAttribute("aria-current", String(k === PLANTS[i].season)));
+}
+function showTip(i) {
+  clearTimeout(tipTimer);
+  tlTip.textContent = `${CONFIG.months[i]}: ${PLANTS[i].name}`;
+  tlTip.style.left = pctOf(i);
+  tlTip.style.setProperty("--tx", i <= 1 ? "-18%" : i >= 10 ? "-82%" : "-50%");
+  tlTip.classList.add("show");
+  dots.forEach((d, k) => d.classList.toggle("hover", k === i && k !== thumbAt));
+}
+function hideTip(delay = 0) {
+  clearTimeout(tipTimer);
+  tipTimer = setTimeout(() => { tlTip.classList.remove("show"); dots.forEach(d => d.classList.remove("hover")); }, delay);
+}
+const monthAtPointer = e => {
+  const r = tlWrap.getBoundingClientRect();
+  return Math.max(0, Math.min(11, Math.floor((e.clientX - r.left) / r.width * 12)));
+};
+tlWrap.addEventListener("pointermove", e => { if (e.pointerType === "mouse") showTip(monthAtPointer(e)); });
+tlWrap.addEventListener("pointerleave", () => hideTip());
+tlWrap.addEventListener("click", e => {
+  const v = monthAtPointer(e);
+  goTo(v);
+  if (e.pointerType !== "mouse") { showTip(v); hideTip(1100); }
+});
+// Arrow keys step through months; the plant follows once you stop pressing
+range.addEventListener("input", () => {
+  const v = +range.value;
+  moveThumb(v, 0.3); markMonth(v);
+  clearTimeout(dragTimer);
+  dragTimer = setTimeout(() => goTo(v), 240);
+});
+range.addEventListener("focus", () => tlWrap.classList.toggle("kb", range.matches(":focus-visible")));
+range.addEventListener("blur", () => tlWrap.classList.remove("kb"));
+
+function updateTimeline(i, instant) {
+  const pl = PLANTS[i];
+  range.value = i;
+  range.setAttribute("aria-valuetext", `${CONFIG.months[i]}: ${pl.name}`);
+  markMonth(i);
+  moveThumb(i, instant ? 0 : 0.75);
+}
+
+/* ---------- Caption & card ---------- */
+const whenText = i => `${CONFIG.months[i]}, ${CONFIG.seasons[PLANTS[i].season].label.toLowerCase()}`;
+function setLabels(i) {
+  const pl = PLANTS[i];
+  $("name").textContent = pl.name;
+  $("dLatin").textContent = pl.latin;
+  $("dFact").textContent = pl.fact;
+  $("dLook").textContent = pl.look;
+  $("dHabitat").textContent = pl.habitat;
+  $("dWhere").textContent = pl.where;
+  $("embedCap").textContent = pl.name;
+  stage.setAttribute("aria-label", `${pl.name}, featured in ${CONFIG.months[i]}. Press for more about this plant.`);
+}
+let labelTl = null;
+// Every plant name fits on one line, at one shared size, so the layout never shifts.
+function fitCaption() {
+  const nameEl = $("name"), box = $("infoText");
+  const width = box.clientWidth;
+  if (!width) return;
+  const n = document.createElement("h2");
+  n.className = "name";
+  n.style.cssText = "position:absolute;visibility:hidden;left:-9999px;top:0;display:inline-block;";
+  box.appendChild(n);
+  nameEl.style.fontSize = "";
+  const base = parseFloat(getComputedStyle(nameEl).fontSize);
+  let widest = 0;
+  PLANTS.forEach(pl => { n.textContent = pl.name; widest = Math.max(widest, n.scrollWidth); });
+  n.remove();
+  nameEl.style.fontSize = widest > width ? (base * width / widest * 0.98) + "px" : "";
+}
+
+// Desktop details: one shared text size, chosen so the longest plant's details
+// fit above the timeline. Nothing moves when you change plants.
+function fitDetails() {
+  const det = $("details"), info = document.querySelector(".info");
+  if (getComputedStyle(det).display === "none") return;
+  det.style.setProperty("--ds", 1);
+  const probe = det.cloneNode(true);
+  probe.removeAttribute("id");
+  probe.querySelectorAll("[id]").forEach(e => e.removeAttribute("id"));
+  probe.style.cssText = `position:absolute;visibility:hidden;left:-9999px;top:0;width:${det.clientWidth}px;opacity:1;transform:none;`;
+  info.appendChild(probe);
+  const nameH = Math.ceil(parseFloat(getComputedStyle($("name")).fontSize) * 0.98) + 2; // name is always one line
+  const avail = info.clientHeight - nameH - 2;
+  const q = s => probe.querySelector(s), dds = probe.querySelectorAll("dd");
+  const measure = ds => {
+    probe.style.setProperty("--ds", ds);
+    let m = 0;
+    PLANTS.forEach(pl => {
+      q(".d-latin").textContent = pl.latin; q(".d-fact").textContent = pl.fact;
+      dds[0].textContent = pl.look; dds[1].textContent = pl.habitat; dds[2].textContent = pl.where;
+      m = Math.max(m, probe.offsetHeight);
+    });
+    return m;
+  };
+  let ds = 1, need = measure(ds);
+  for (let k = 0; k < 8 && need > avail && ds > 0.7; k++) { ds *= Math.max(0.9, (avail / need) * 0.99); need = measure(ds); }
+  probe.remove();
+  det.style.setProperty("--ds", ds.toFixed(3));
+}
+
+// Old caption fades out as the plant softens into buds, then the new caption
+// fades in line by line as the new plant unfurls. The layout never changes size.
+function animateLabels(i, fadeInAt) {
+  if (labelTl) labelTl.kill();
+  const els = [$("name"), $("details"), $("embedCap")];
+  const calm = reduceMQ.matches;
+  const out = 0.25;
+  labelTl = gsap.timeline();
+  labelTl.to(els, { opacity: 0, y: calm ? 0 : -4, duration: out, ease: "sine.inOut" }, 0)
+    .add(() => setLabels(i), out)
+    .fromTo(els,
+      { opacity: 0, y: calm ? 0 : 6 },
+      { opacity: 1, y: 0, duration: 0.35, ease: "sine.out", stagger: calm ? 0 : 0.06, immediateRender: false },
+      Math.max(out + 0.1, fadeInAt));
+}
+
+const card = $("card");
+let resumeAfterCard = false;
+function openCard() {
+  const i = idx, pl = PLANTS[i];
+  $("cardWhen").textContent = whenText(i);
+  $("cardName").textContent = pl.name;
+  $("cardLatin").textContent = pl.latin;
+  $("cardFact").textContent = pl.fact;
+  $("cardLook").textContent = pl.look;
+  $("cardHabitat").textContent = pl.habitat;
+  $("cardWhere").textContent = pl.where;
+  resumeAfterCard = playing;
+  setPlaying(false);
+  placeCard();
+  if (card.showModal) card.showModal(); else card.setAttribute("open", "");
+  card.scrollTop = 0;
+  card.focus({ preventScroll: true }); // don't auto-focus the close button
+  gsap.fromTo(card, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "sine.out" });
+}
+function placeCard() {
+  const r = stage.getBoundingClientRect();
+  Object.assign(card.style, { top: r.top + "px", left: r.left + "px", width: r.width + "px", height: r.height + "px" });
+}
+function closeCard() {
+  if (!card.open) return;
+  gsap.to(card, { opacity: 0, duration: 0.2, ease: "sine.in", onComplete: () => card.close ? card.close() : card.removeAttribute("open") });
+}
+["resize", "scroll"].forEach(ev => window.addEventListener(ev, () => { if (card.open) placeCard(); }, { passive: true }));
+$("cardClose").addEventListener("click", closeCard);
+card.addEventListener("cancel", e => { e.preventDefault(); closeCard(); });
+card.addEventListener("close", () => { if (resumeAfterCard) setPlaying(true); });
+card.addEventListener("click", e => { if (e.target === card) closeCard(); });
+$("aboutBtn").addEventListener("click", openCard);
+const detailsShown = () => getComputedStyle($("details")).display !== "none";
+stage.addEventListener("click", e => { if (!EMBED && !detailsShown() && !e.target.closest("button")) openCard(); });
+
+/* ---------- Deep links ---------- */
+const slugIndex = s => PLANTS.findIndex(p => p.slug === s);
+function writeHash(i) {
+  try { history.replaceState(null, "", "#" + PLANTS[i].slug); } catch (e) { /* not allowed in some frames */ }
+}
+window.addEventListener("hashchange", () => {
+  const j = slugIndex(location.hash.slice(1));
+  if (j >= 0 && j !== idx) goTo(j);
+});
+
+/* ---------- Morphing ----------
+   A custom point-based morph: every shape is upsampled (keeping its
+   original corners) to a shared point count, then follows one smooth
+   curve that bends through a soft bud shape. One easing, one loop,
+   no per-shape tween setup, so frames stay even. */
+let idx = 0, playing = true, tl = null, holdCall = null, morphing = false, morph = null;
+const windAmp = { v: 0 };
+
+function parseColor(c) {
+  if (c[0] === "#") return [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16), 1];
+  const v = c.slice(c.indexOf("(") + 1, -1).split(",").map(Number);
+  return [v[0], v[1], v[2], v.length > 3 ? v[3] : 1];
+}
+const colorStr = c => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${c[3].toFixed(3)})`;
+function ellPts(cx, cy, rx, ry, rotDeg, N) {
+  const out = [], c = Math.cos(rad(rotDeg)), s = Math.sin(rad(rotDeg));
+  for (let i = 0; i < N; i++) {
+    const t = i / N * Math.PI * 2, x = Math.cos(t) * rx, y = Math.sin(t) * ry;
+    out.push([cx + x * c - y * s, cy + x * s + y * c]);
+  }
+  return out;
+}
+const budPts = (cx, cy, size, ang, N) => ellPts(cx, cy, Math.max(1.4, size * 0.34), Math.max(1, size * 0.2), ang, N);
+// Add points along edges (longest edges get most) without moving any original corner
+function upsample(pts, N) {
+  const n = pts.length;
+  if (n >= N) return pts.slice(0, N);
+  const len = [];
+  let total = 0;
+  for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % n]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]); len.push(l); total += l; }
+  const extra = N - n;
+  const want = len.map(l => total > 0 ? l / total * extra : extra / n);
+  const base = want.map(Math.floor);
+  let rem = extra - base.reduce((a, b) => a + b, 0);
+  want.map((w, i) => [w - base[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (rem > 0) { base[i]++; rem--; } });
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const a = pts[i], b = pts[(i + 1) % n];
+    out.push(a);
+    for (let k = 1; k <= base[i]; k++) { const t = k / (base[i] + 1); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+  }
+  return out;
+}
+// Rotate (and if needed reverse) B so its points line up with A, to avoid twisting
+function align(A, B) {
+  const N = A.length;
+  let best = Infinity, bestK = 0, bestRev = false;
+  const step = Math.max(1, Math.floor(N / 40));
+  for (const rev of [false, true]) {
+    for (let k = 0; k < N; k++) {
+      let cost = 0;
+      for (let i = 0; i < N; i += step) {
+        const j = rev ? ((k - i) % N + N) % N : (i + k) % N;
+        const dx = A[i][0] - B[j][0], dy = A[i][1] - B[j][1];
+        cost += dx * dx + dy * dy;
+        if (cost >= best) break;
+      }
+      if (cost < best) { best = cost; bestK = k; bestRev = rev; }
+    }
+  }
+  const out = new Array(N);
+  for (let i = 0; i < N; i++) out[i] = B[bestRev ? ((bestK - i) % N + N) % N : (i + bestK) % N];
+  return out;
+}
+function windXY(x, y, A) {
+  const sp = CONFIG.wind.speed, h = Math.max(0, (G - y) / 250), hp = Math.pow(h, 1.5), ph = windT * sp + x * 0.011;
+  return [x + A * hp * (Math.sin(ph) + 0.35 * Math.sin(windT * 2.6 + y * 0.03 + x * 0.02)), y - A * 0.3 * h * Math.sin(ph + 1.2)];
+}
+// Where each slot is drawn right now (mid-morph, swaying, or at rest)
+function currentPts(s) {
+  const it = s.item;
+  if (it && morph && morph.items.includes(it)) return it.e >= 1 && it.end ? it.end : curve(it, it.e || 0);
+  const A = CONFIG.wind.amp * windAmp.v;
+  if (s.vis && A > 0.001 && !reduceMQ.matches) return s.pts.map(([x, y]) => windXY(x, y, A));
+  return s.pts;
+}
+function curve(it, e) {
+  const a = (1 - e) * (1 - e), b = 2 * e * (1 - e), c = e * e, out = new Array(it.A.length);
+  for (let i = 0; i < it.A.length; i++) out[i] = [a * it.A[i][0] + b * it.C[i][0] + c * it.T[i][0], a * it.A[i][1] + b * it.C[i][1] + c * it.T[i][1]];
+  return out;
+}
+function makeItem(s, A0, bud, T0, extra) {
+  const N = Math.max(A0.length, T0.length, 48);
+  const A = upsample(A0, N);
+  const Bd = align(A, typeof bud === "function" ? bud(N) : upsample(bud, N));
+  const T = align(Bd, upsample(T0, N));
+  // Control points chosen so the path passes exactly through the bud halfway
+  const C = A.map((p, i) => [2 * Bd[i][0] - (p[0] + T[i][0]) / 2, 2 * Bd[i][1] - (p[1] + T[i][1]) / 2]);
+  const it = Object.assign({ s, A, C, T, e: 0, u: -1 }, extra);
+  s.item = it;
+  return it;
+}
+
+function morphStep(dt) {
+  if (!morph) return;
+  morph.t += dt * 0.0167;
+  let done = true;
+  for (const it of morph.items) {
+    let u = (morph.t - it.delay) / it.dur;
+    if (u < 1) done = false;
+    u = Math.max(0, Math.min(1, u));
+    if (u === it.u) continue;
+    it.u = u;
+    const e = 0.5 - 0.5 * Math.cos(Math.PI * u);
+    it.e = e;
+    const el = it.s.el;
+    if (u >= 1 && it.end) el.setAttribute("d", it.endD);
+    else {
+      const a = (1 - e) * (1 - e), b = 2 * e * (1 - e), c = e * e;
+      let str = "M";
+      for (let i = 0; i < it.A.length; i++) {
+        str += (i ? "L" : "") + R1(a * it.A[i][0] + b * it.C[i][0] + c * it.T[i][0]) + "," + R1(a * it.A[i][1] + b * it.C[i][1] + c * it.T[i][1]);
+      }
+      el.setAttribute("d", str + "Z");
+    }
+    const f = it.f0.map((v, k) => v + (it.f1[k] - v) * e);
+    const op = it.fadeIn ? Math.min(1, it.o0 + (1 - it.o0) * Math.min(1, u * 2.2))
+                         : it.o0 + (it.o1 - it.o0) * (it.fadeOut ? Math.max(0, (u - 0.35) / 0.65) : e);
+    el.style.fill = colorStr(f);
+    el.style.opacity = op.toFixed(3);
+    it.s.fill = f; it.s.op = op;
+  }
+  if (!morph.reordered && morph.t > morph.half) { reorder(morph.assign); morph.reordered = true; }
+  if (done) { const cb = morph.onDone; morph = null; if (cb) cb(); }
+}
+
+// Pair each new part with the nearest similar-sized visible shape,
+// so every shape travels a short distance.
+function assignParts(parts) {
+  const vis = slots.filter(s => s.vis);
+  const pairs = [];
+  vis.forEach(s => parts.forEach(p => pairs.push([Math.hypot(s.cx - p.cx, s.cy - p.cy) + 0.8 * Math.abs(s.size - p.size), s, p])));
+  pairs.sort((a, b) => a[0] - b[0]);
+  const sUsed = new Set(), pUsed = new Set(), assign = new Map(), born = new Set();
+  for (const [, s, p] of pairs) {
+    if (sUsed.has(s) || pUsed.has(p)) continue;
+    sUsed.add(s); pUsed.add(p); assign.set(s, p);
+  }
+  const free = slots.filter(s => !s.vis);
+  parts.forEach(p => {
+    if (pUsed.has(p)) return;
+    const s = free.shift();
+    if (s) { assign.set(s, p); born.add(s); }
+  });
+  return { assign, born };
+}
+function reorder(assign) {
+  slots.slice()
+    .sort((a, b) => (assign.has(a) ? assign.get(a).z : -1) - (assign.has(b) ? assign.get(b).z : -1))
+    .forEach(s => plantG.appendChild(s.el));
+}
+function commit(assign) {
+  slots.forEach(s => {
+    const p = assign.get(s);
+    if (p) Object.assign(s, { vis: true, pts: p.pts, cx: p.cx, cy: p.cy, size: p.size, ang: p.ang, z: p.z });
+    else if (s.vis) Object.assign(s, { vis: false, pts: parsePts(budD(s.cx, s.cy, 1, s.ang)), size: 0, z: -1 });
+  });
+}
+function settle() {
+  morphing = false;
+  if (frozen) windAmp.v = 0; // sway eases back in when play is pressed
+  else gsap.fromTo(windAmp, { v: 0 }, { v: 1, duration: CONFIG.wind.rampIn, ease: "sine.inOut" });
+  schedule();
+}
+function schedule() {
+  if (holdCall) holdCall.kill();
+  holdCall = null;
+  if (!playing) return;
+  holdCall = gsap.delayedCall(CONFIG.timing.hold, () => goTo((idx + 1) % PLANTS.length));
+}
+
+function goTo(i, opts = {}) {
+  if (holdCall) { holdCall.kill(); holdCall = null; }
+  if (tl) { tl.kill(); tl = null; }
+  const first = !!opts.first;
+  if (i === idx && !first && !opts.force) { if (!morphing) schedule(); return; }
+  idx = i;
+  const pl = PLANTS[i], T = CONFIG.timing, m = T.morph;
+  const reduced = reduceMQ.matches;
+  // capture where every shape is right now, before anything changes
+  const now = new Map();
+  slots.forEach(s => { if (s.vis || (s.item && morph)) now.set(s, currentPts(s)); });
+  gsap.killTweensOf(windAmp);
+  const { assign, born } = assignParts(shapeCache[i]);
+  const leaving = slots.filter(s => s.vis && !assign.has(s));
+  morphing = true;
+  morph = null;
+  windAmp.v = 0;
+
+  if (reduced) {
+    const apply = () => {
+      slots.forEach(s => {
+        const p = assign.get(s);
+        if (p) { s.el.setAttribute("d", p.d); s.el.style.fill = p.f; s.el.style.opacity = 1; s.fill = parseColor(p.f); s.op = 1; }
+        else { s.el.style.opacity = 0; s.op = 0; }
+        s.item = null;
+      });
+      reorder(assign);
+    };
+    tl = gsap.timeline({ onComplete: settle });
+    tl.to(plantG, { opacity: 0, duration: first ? 0 : T.reducedFade, ease: "sine.inOut" })
+      .add(apply)
+      .to(plantG, { opacity: 1, duration: T.reducedFade, ease: "sine.inOut" });
+    commit(assign);
+    applySeason(pl.season, first ? 0 : T.reducedFade * 2);
+    if (first) setLabels(i); else animateLabels(i, T.reducedFade + 0.1);
+  } else {
+    plantG.style.opacity = 1;
+    const delayOf = y => Math.max(0, Math.min(1, (G - y) / 280)) * T.grow;
+    const items = [];
+    assign.forEach((p, s) => {
+      const isBorn = born.has(s);
+      const A0 = isBorn ? ellPts(p.cx, p.cy, 0.8, 0.5, p.ang, 24) : (now.get(s) || s.pts);
+      const mx = isBorn ? p.cx : (s.cx + p.cx) / 2, my = isBorn ? p.cy : (s.cy + p.cy) / 2;
+      const sz = isBorn ? p.size * 0.55 : (s.size + p.size) / 2;
+      items.push(makeItem(s, A0, N => budPts(mx, my, sz, p.ang, N), p.pts, {
+        delay: delayOf(p.cy), dur: m, end: p.pts, endD: p.d,
+        f0: isBorn ? parseColor(p.f) : (s.fill || parseColor(p.f)), f1: parseColor(p.f),
+        o0: isBorn ? 0 : (s.op ?? 1), o1: 1, fadeIn: isBorn
+      }));
+    });
+    leaving.forEach(s => {
+      const A0 = now.get(s) || s.pts;
+      items.push(makeItem(s, A0, N => budPts(s.cx, s.cy, s.size * 0.6, s.ang, N), ellPts(s.cx, s.cy, 0.8, 0.5, s.ang, 24), {
+        delay: delayOf(s.cy) * 0.5, dur: m * 0.85, end: null,
+        f0: s.fill || [0, 0, 0, 1], f1: s.fill || [0, 0, 0, 1], o0: s.op ?? 1, o1: 0, fadeOut: true
+      }));
+    });
+    commit(assign);
+    morph = { t: 0, items, assign, half: m * 0.5, reordered: false, onDone: settle };
+    applySeason(pl.season, first ? 0 : m + T.grow);
+    if (first) setLabels(i); else animateLabels(i, m * 0.55);
+  }
+  updateTimeline(i, first);
+  setHoodSnow(i, first ? 0 : m + T.grow);
+  setAmbient(pl.season);
+  if (!first) writeHash(i);
+}
+
+/* ---------- Play / pause ---------- */
+const ICON_PAUSE = '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>';
+const ICON_PLAY = '<path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/>';
+function setPlaying(v) {
+  playing = v;
+  $("playIcon").innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
+  $("play").setAttribute("aria-label", playing ? "Pause" : "Play");
+  if (playing) { if (!morphing) schedule(); }
+  else if (holdCall) { holdCall.kill(); holdCall = null; }
+}
+// The play/pause button stops everything: the month-to-month cycle, the plant's
+// sway, drifting clouds, and rain, snow, or leaves. (Opening the plant card only
+// stops the cycle.) Choosing a month while paused still morphs to that plant.
+let frozen = false;
+$("play").addEventListener("click", () => {
+  frozen = playing;
+  setPlaying(!playing);
+  $("play").setAttribute("aria-label", playing ? "Pause animation" : "Play animation");
+  if (!frozen && !morphing && windAmp.v < 1) {
+    gsap.to(windAmp, { v: 1, duration: CONFIG.wind.rampIn, ease: "sine.inOut", overwrite: true });
+  }
+});
+
+/* =========================================================
+   Continuous wind: bends every point of every visible shape.
+   The field is smooth in space, so veins and shading stay
+   aligned with the leaves they sit on.
+   ========================================================= */
+let windT = 0;
+function windStep(dt) {
+  if (frozen) return;
+  windT += dt * 0.0167;
+  if (morphing || reduceMQ.matches || windAmp.v < 0.001) return;
+  const A = CONFIG.wind.amp * windAmp.v;
+  for (let k = 0; k < slots.length; k++) {
+    const s = slots[k];
+    if (!s.vis) continue;
+    let str = "M";
+    const pts = s.pts;
+    for (let i = 0; i < pts.length; i++) {
+      const q = windXY(pts[i][0], pts[i][1], A);
+      str += (i ? "L" : "") + R1(q[0]) + "," + R1(q[1]);
+    }
+    s.el.setAttribute("d", str + "Z");
+  }
+}
+
+/* =========================================================
+   Sky particles: rain and snow in winter, falling leaves in fall.
+   Nothing moves in the sky in spring or summer.
+   ========================================================= */
+const cvs = $("ambient"), ctx = cvs.getContext("2d");
+let W = 0, H = 0, ambientType = null;
+const parts = Array.from({ length: 70 }, () => ({ type: null }));
+const LEAF = new Path2D("M0,-10 C4,-7 7,-3 6,1 C5,5 2,8 0,10 C-2,8 -5,5 -6,1 C-7,-3 -4,-7 0,-10 Z");
+const LEAF_COLORS = ["#B8482B", "#E08A2E", "#E9B949", "#A12538", "#CF9A5E"];
+
+function resize() {
+  const r = stage.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  W = r.width; H = r.height;
+  cvs.width = Math.round(W * dpr); cvs.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  fitCaption();
+  fitDetails();
+}
+function spawn(p, anywhere) {
+  const s = W / 400;
+  p.type = null;
+  if (!ambientType) return;
+  let t = ambientType;
+  if (t === "rainsnow") t = Math.random() < 0.62 ? "rain" : "snow";
+  if (t === "leaves" && parts.indexOf(p) >= 24) return; // fewer leaves than raindrops
+  p.type = t;
+  p.x = Math.random() * W * 1.1 - W * 0.05;
+  p.y = anywhere ? Math.random() * H : -20 * s;
+  p.rot = Math.random() * Math.PI * 2;
+  p.phase = Math.random() * Math.PI * 2;
+  if (t === "rain") { p.vy = (3.8 + Math.random() * 2.2) * s; p.len = (10 + Math.random() * 8) * s; }
+  else if (t === "snow") { p.vy = (0.45 + Math.random() * 0.45) * s; p.size = (1.4 + Math.random() * 1.8) * s; }
+  else { p.vy = (0.55 + Math.random() * 0.55) * s; p.size = (0.55 + Math.random() * 0.4) * s; p.col = LEAF_COLORS[Math.floor(Math.random() * LEAF_COLORS.length)]; p.spin = (Math.random() - 0.5) * 0.04; }
+}
+function setAmbient(key) { ambientType = CONFIG.seasons[key].ambient; }
+
+let last = performance.now(), booted = false, onScreen = true;
+function tick(now) {
+  const dt = Math.min(3, (now - last) / 16.67); last = now;
+  if (onScreen) {
+    morphStep(dt);
+    windStep(dt);
+    cloudStep(dt);
+    if (!frozen) ctx.clearRect(0, 0, W, H);
+    if (!reduceMQ.matches && !frozen) {
+      const s = W / 400, dark = isDark();
+      parts.forEach(p => {
+        if (!booted) spawn(p, true);
+        if (!p.type) { if (ambientType && Math.random() < 0.01) spawn(p, false); return; }
+        // particles from the previous season fade out instead of lingering
+        const fits = p.type === ambientType || (ambientType === "rainsnow" && (p.type === "rain" || p.type === "snow"));
+        p.fade = fits ? Math.min(1, (p.fade ?? 1) + 0.05 * dt) : (p.fade ?? 1) - 0.03 * dt;
+        if (p.fade <= 0) { p.fade = 0; spawn(p, false); return; }
+        ctx.globalAlpha = p.fade;
+        if (p.type === "rain") {
+          p.y += p.vy * dt; p.x += 0.7 * s * dt;
+          ctx.strokeStyle = dark ? "rgba(175,198,222,0.38)" : "rgba(70,94,118,0.34)";
+          ctx.lineWidth = 1.2 * s;
+          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - 0.35 * p.len, p.y - p.len); ctx.stroke();
+          if (p.y - p.len > H) spawn(p, false);
+        } else if (p.type === "snow") {
+          p.phase += 0.02 * dt;
+          p.y += p.vy * dt; p.x += Math.sin(p.phase) * 0.45 * s * dt;
+          ctx.fillStyle = dark ? "rgba(235,240,245,0.85)" : "rgba(255,255,255,0.95)";
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+          if (p.y > H + 10) spawn(p, false);
+        } else {
+          p.phase += 0.018 * dt; p.rot += p.spin * dt;
+          p.y += p.vy * dt; p.x += Math.sin(p.phase) * 0.9 * s * dt;
+          ctx.save();
+          ctx.translate(p.x, p.y); ctx.rotate(p.rot + Math.sin(p.phase) * 0.6);
+          ctx.scale(p.size * Math.max(0.25, Math.abs(Math.cos(p.phase * 1.3))), p.size);
+          ctx.fillStyle = p.col; ctx.fill(LEAF);
+          ctx.restore();
+          if (p.y > H + 20 * s) spawn(p, false);
         }
-        c.closePath(); c.stroke();
-      }
-    });
-  } else if (sc.pattern === 'spiral') {
-    const turns = 3, maxR = diag * .62, pitch = maxR / (turns * TAU), rot = t * sc.spin * 3;
-    const ox = cx + Math.sin(t * .13) * bgW * .1, oy = cy + Math.cos(t * .11) * bgH * .08;
-    for (let a = 0; a < sc.arms; a++) {
-      c.strokeStyle = ln(a, alpha); c.beginPath();
-      let first = true;
-      for (let th = .2; th < turns * TAU; th += .07) {
-        const r = th * pitch * (1 + .07 * Math.sin(th * 1.5 - t * .8)), ang = th + rot + a * TAU / sc.arms;
-        const x = ox + Math.cos(ang) * r, y = oy + Math.sin(ang) * r;
-        if (first) { c.moveTo(x, y); first = false; } else c.lineTo(x, y);
-      }
-      c.stroke();
-    }
-  } else if (sc.pattern === 'mandala') {
-    const copies = 9, R = diag * .34;
-    const ox = cx + Math.sin(t * .1) * bgW * .08, oy = cy + Math.cos(t * .12) * bgH * .06;
-    for (let i = 1; i <= copies; i++) {
-      const sR = R * i / copies * 1.9, rot = t * sc.spin * (i % 2 ? 1 : -1) * 2 + i * .12, breathe = .72 + .28 * Math.sin(t * .6 + i * .5);
-      c.strokeStyle = ln(i, alpha * (.55 + .6 * (1 - i / copies))); c.beginPath();
-      for (let th = 0; th <= TAU + .03; th += .03) {
-        const rr = sR * Math.cos(sc.k * th) * breathe, a = th + rot;
-        const x = ox + Math.cos(a) * rr, y = oy + Math.sin(a) * rr;
-        if (th === 0) c.moveTo(x, y); else c.lineTo(x, y);
-      }
-      c.stroke();
-    }
-  } else if (sc.pattern === 'flow') {
-    const ls = sc.s * .55, n = Math.ceil(diag / 2 / ls) + 1, half = diag / 2;
-    c.translate(cx, cy); c.rotate(sc.angle);
-    for (let j = -n; j <= n; j++) {
-      c.strokeStyle = ln(j + n, alpha); c.beginPath();
-      for (let x = -half; x <= half; x += 18) {
-        const y = j * ls + ls * 1.4 * Math.sin(x * sc.f1 + j * .28 + t * .8) + ls * .9 * Math.sin(x * sc.f2 - j * .17 - t * .6) + ls * .7 * Math.sin((x * .5 + j * ls) * sc.f1 * .8 + t * .4);
-        if (x === -half) c.moveTo(x, y); else c.lineTo(x, y);
-      }
-      c.stroke();
-    }
-  } else if (sc.pattern === 'moire') {
-    const step = sc.s * .5, maxN = Math.ceil(diag * .7 / step);
-    [[cx + Math.sin(t * .2) * bgW * .18, cy + Math.cos(t * .17) * bgH * .14, 0], [cx + Math.cos(t * .23 + 1) * bgW * .22, cy + Math.sin(t * .19) * bgH * .16, 2]].forEach(([x0, y0, ci]) => {
-      c.strokeStyle = ln(ci, alpha * .8); c.beginPath();
-      for (let n = 1; n <= maxN; n++) { c.moveTo(x0 + n * step, y0); c.arc(x0, y0, n * step, 0, TAU); }
-      c.stroke();
-    });
-  } else { // tunnel
-    const rings = 26, phase = (t * .05) % 1, R = diag * .62;
-    const ox = cx + Math.sin(t * .12) * bgW * .08, oy = cy + Math.cos(t * .1) * bgH * .06;
-    for (let j = 0; j < rings; j++) {
-      const u = (j + phase) / rings, r = R * u * u + 4, rot = sc.twist * u * 2 + t * .12;
-      const al = alpha * Math.sin(Math.min(1, u) * Math.PI) * 1.4;
-      c.strokeStyle = ln(j, al); c.beginPath();
-      for (let s = 0; s <= sc.sides; s++) {
-        const a = rot + s / sc.sides * TAU, rr = r * (1 + .06 * Math.sin(t * .7 + j));
-        const x = ox + Math.cos(a) * rr, y = oy + Math.sin(a) * rr;
-        if (s) c.lineTo(x, y); else c.moveTo(x, y);
-      }
-      c.stroke();
+        ctx.globalAlpha = 1;
+      });
+      booted = true;
     }
   }
-  c.restore();
+  requestAnimationFrame(tick);
 }
-function renderBg(now) {
-  bgCtx.clearRect(0, 0, bgW, bgH);
-  const t = now / 1000;
-  if (prevScene) {
-    const f = Math.min(1, (now - scene.born) / 1600), e = f * f * (3 - 2 * f);
-    drawScene(prevScene, t, 1 - e); drawScene(scene, t, e);
-    if (f >= 1) prevScene = null;
-  } else drawScene(scene, t, 1);
-}
-function bgFrame(now) {
-  bgRaf = requestAnimationFrame(bgFrame);
-  if (now - bgLast < 33) return;
-  bgLast = now; renderBg(now);
-}
-function startBg() { if (!reduceMotion && !bgRaf) bgRaf = requestAnimationFrame(bgFrame); }
-function resizeBg() {
-  bgW = window.innerWidth; bgH = window.innerHeight;
-  const dpr = Math.min(1.5, window.devicePixelRatio || 1);
-  bgCanvas.width = Math.round(bgW * dpr); bgCanvas.height = Math.round(bgH * dpr);
-  bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  if (reduceMotion) renderBg(performance.now());
-}
-function newScene(announce) {
-  prevScene = scene;
-  scene = makeScene();
-  if (reduceMotion) { prevScene = null; renderBg(performance.now()); }
-  if (announce) toast('Scene: ' + scene.name, 1800);
-}
-window.addEventListener('resize', resizeBg);
-if (darkMQ.addEventListener) darkMQ.addEventListener('change', () => { if (reduceMotion && scene) renderBg(performance.now()); });
-document.querySelectorAll('[data-theme-opt]').forEach(b => b.addEventListener('click', () => { settings.theme = b.dataset.themeOpt; store.set('fc:settings', settings); applyTheme(); }));
-applyTheme();
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { cancelAnimationFrame(bgRaf); bgRaf = 0; } else startBg();
-});
-$('#scene').addEventListener('click', e => { e.currentTarget.classList.toggle('spun'); newScene(true); });
-resizeBg(); newScene(false); startBg();
+window.addEventListener("resize", resize);
+if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
 
-window.addEventListener('keydown', e => {
-  if (!scrim.hidden) {
-    if (e.key === 'Escape' && !menuDlg.hidden) closeDlgs();
-    return;
-  }
-  if (e.target && e.target.tagName === 'INPUT') return;
-  const k = e.key.toLowerCase();
-  if (k === 'u' || (k === 'z' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); undo(); }
-  else if (k === 'h') showHint();
-  else if (k === 'm') openDlg('menuDlg');
-  else if (k === 'b') { $('#scene').classList.toggle('spun'); newScene(true); }
-  else if (k === 'escape') clearSel();
-});
+// Pause everything while the stage is scrolled out of view
+if (window.IntersectionObserver) {
+  new IntersectionObserver(entries => {
+    onScreen = entries[0].isIntersecting;
+    if (onScreen) gsap.globalTimeline.resume(); else gsap.globalTimeline.pause();
+  }, { threshold: 0.05 }).observe(stage);
+}
 
-['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
-
-/* ---------- start ---------- */
-G = newState(randomSeed());
-updateHud();
-requestAnimationFrame(() => playDeal());
-})();
+/* =========================================================
+   Boot: start on the linked plant, or on this month's plant
+   ========================================================= */
+function startIndex() {
+  const fromHash = slugIndex(location.hash.slice(1));
+  if (fromHash >= 0) return fromHash;
+  return (new Date().getMonth() + 1) % 12; // timeline starts in December
+}
+function boot() {
+  if (booted) return;
+  document.body.classList.add("ready");
+  resize();
+  idx = -1;
+  goTo(startIndex(), { first: true });
+  requestAnimationFrame(tick);
+}
+const fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+Promise.race([fontsReady, new Promise(r => setTimeout(r, 1500))]).then(() => requestAnimationFrame(boot));
 </script>
 </body>
 </html>
